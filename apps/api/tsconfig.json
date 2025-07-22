@@ -16,7 +16,6 @@
     "strictPropertyInitialization": false,
     "noImplicitThis": false,
     "noImplicitReturns": false,
-    "suppressImplicitAnyIndexErrors": true,
     "skipLibCheck": true,
     "declaration": false,
     "outDir": "./dist",
