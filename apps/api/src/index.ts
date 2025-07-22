@@ -51,8 +51,9 @@ app.use('*', cors({
 app.get('/', (c) => {
   return c.json({
     name: 'FitAI API',
-    version: '1.0.0',
+    version: '1.1.0',
     status: 'healthy',
+    deployment: 'auto-deploy-enabled',
     timestamp: new Date().toISOString(),
     environment: c.env.ENVIRONMENT || 'development'
   });
