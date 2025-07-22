@@ -44,6 +44,10 @@ premiumAi.post('/generate-advanced-routine', premiumMiddleware, async (c) => {
   try {
     const user = c.get('user');
     
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
+    
     const requestData = await c.req.json() as {
       experienceLevel: 'beginner' | 'intermediate' | 'advanced';
       goals: string[];
@@ -104,6 +108,10 @@ premiumAi.post('/generate-advanced-routine', premiumMiddleware, async (c) => {
 premiumAi.post('/analyze-fatigue', premiumMiddleware, async (c) => {
   try {
     const user = c.get('user');
+    
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
     
     // Solo Pro tiene acceso a análisis de fatiga
     if (user.plan !== 'pro') {
@@ -292,6 +300,10 @@ premiumAi.get('/features', async (c) => {
 premiumAi.post('/generate-progress-report', premiumMiddleware, async (c) => {
   try {
     const user = c.get('user');
+    
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
     
     const { 
       workoutHistory, 
