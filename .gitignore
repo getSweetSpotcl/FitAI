@@ -147,5 +147,4 @@ temp/
 .claude/
 
 # API Keys and sensitive data
-wrangler.toml
 .dev.vars
