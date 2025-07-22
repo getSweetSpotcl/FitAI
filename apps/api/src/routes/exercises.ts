@@ -64,9 +64,9 @@ exercises.get('/:id', async (c) => {
       SELECT * FROM exercises 
       WHERE id = ${exerciseId}
       LIMIT 1
-    `;
+    ` as any;
 
-    if (result.length === 0) {
+    if ((result as any[]).length === 0) {
       throw new HTTPException(404, { message: 'Exercise not found' });
     }
 
@@ -109,13 +109,13 @@ exercises.get('/search/:query', async (c) => {
         END,
         name_es
       LIMIT ${limit}
-    `;
+    ` as any;
 
     return c.json({
       success: true,
       data: searchResults,
       query,
-      count: searchResults.length,
+      count: (searchResults as any[]).length,
     });
 
   } catch (error) {

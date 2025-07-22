@@ -227,8 +227,8 @@ export async function getExercises(sql: DatabaseClient, filters?: {
     }
     
     // Para queries dinámicas con Neon, necesitamos usar sql.unsafe
-    const result = await sql.unsafe(query, params);
-    return result;
+    const result = await sql.unsafe(query, params) as any;
+    return result as Exercise[];
   } catch (error) {
     console.error('Error getting exercises:', error);
     throw error;
@@ -241,8 +241,8 @@ export async function getUserRoutines(sql: DatabaseClient, userId: string): Prom
       SELECT * FROM routines 
       WHERE user_id = ${userId} AND is_active = true 
       ORDER BY created_at DESC
-    `;
-    return result;
+    ` as any;
+    return result as Routine[];
   } catch (error) {
     console.error('Error getting user routines:', error);
     throw error;
@@ -335,8 +335,8 @@ export async function getUserWorkouts(sql: DatabaseClient, userId: string, limit
       ORDER BY started_at DESC
       LIMIT ${limit}
       OFFSET ${offset}
-    `;
-    return result;
+    ` as any;
+    return result as WorkoutSession[];
   } catch (error) {
     console.error('Error getting user workouts:', error);
     throw error;
@@ -350,9 +350,9 @@ export async function getWorkoutWithSets(sql: DatabaseClient, sessionId: string,
       SELECT * FROM workout_sessions 
       WHERE id = ${sessionId} AND user_id = ${userId}
       LIMIT 1
-    `;
+    ` as any;
 
-    if (sessionResult.length === 0) {
+    if ((sessionResult as any[]).length === 0) {
       return null;
     }
 
