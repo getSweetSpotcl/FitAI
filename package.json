@@ -1,0 +1,39 @@
+{
+  "name": "fitai",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "clean": "turbo clean"
+  },
+  "keywords": [
+    "fitness",
+    "ai",
+    "personal-trainer",
+    "react-native"
+  ],
+  "author": "FitAI Team",
+  "license": "MIT",
+  "description": "AI-powered personal training app",
+  "devDependencies": {
+    "@biomejs/biome": "^2.1.2",
+    "@turbo/gen": "^2.5.5",
+    "turbo": "^2.5.5",
+    "typescript": "^5.8.3"
+  },
+  "resolutions": {
+    "react": "18.3.1",
+    "@types/react": "~18.3.0"
+  },
+  "packageManager": "npm@10.0.0",
+  "dependencies": {
+    "@babel/runtime": "^7.27.6"
+  }
+}
