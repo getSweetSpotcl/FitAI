@@ -51,9 +51,9 @@ app.use('*', cors({
 app.get('/', (c) => {
   return c.json({
     name: 'FitAI API',
-    version: '1.3.0',
+    version: '1.3.1',
     status: 'healthy',
-    deployment: 'wrangler-explicit-entry-deploy',
+    deployment: 'wrangler-toml-config-deploy',
     timestamp: new Date().toISOString(),
     environment: c.env.ENVIRONMENT || 'development'
   });
