@@ -222,10 +222,22 @@ The root `package.json` includes these scripts:
 
 ## Automatic Deployments
 
+### Web Frontend (Cloudflare Pages)
 Once configured:
 - **Main branch**: Every push triggers a production deployment
 - **Pull Requests**: Get preview deployments with unique URLs
 - **Preview URL format**: `https://<hash>.fitai-web.pages.dev`
+
+### API Backend (GitHub Actions)
+The API deploys automatically via GitHub Actions:
+- **Trigger**: Push to main branch with changes in `apps/api/**`
+- **Configuration**: See [GITHUB_ACTIONS_SETUP.md](./GITHUB_ACTIONS_SETUP.md)
+- **Required**: GitHub secrets must be configured
+
+To enable API auto-deployment:
+1. Set up GitHub secrets (see documentation)
+2. Create KV namespaces and update wrangler.toml
+3. Push changes to trigger deployment
 
 ## Custom Domain Setup
 
