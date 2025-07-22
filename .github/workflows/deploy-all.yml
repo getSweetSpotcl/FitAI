@@ -59,7 +59,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: 'apps/api'
-          command: deploy
+          command: deploy src/index.ts
           secrets: |
             DATABASE_URL
             JWT_SECRET
