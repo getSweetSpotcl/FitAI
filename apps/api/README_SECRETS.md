@@ -1,4 +1,4 @@
-# FitAI API - Quick Secret Setup
+# FitAI API - Quick Secret Setup.
 
 ## Required Secrets
 
