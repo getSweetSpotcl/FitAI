@@ -13,8 +13,12 @@
     "strict": false,
     "noImplicitAny": false,
     "strictNullChecks": false,
+    "strictPropertyInitialization": false,
+    "noImplicitThis": false,
+    "noImplicitReturns": false,
+    "suppressImplicitAnyIndexErrors": true,
     "skipLibCheck": true,
-    "declaration": true,
+    "declaration": false,
     "outDir": "./dist",
     "rootDir": "./src"
   },
