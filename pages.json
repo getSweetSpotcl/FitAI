@@ -1,0 +1,11 @@
+{
+  "build": {
+    "command": "npm install && npm run build:web",
+    "outputDirectory": "apps/web/.next",
+    "rootDirectory": "/"
+  },
+  "env": {
+    "NODE_VERSION": "18.17.0",
+    "NEXT_PUBLIC_API_URL": "https://fitai-api.sweetspot-627.workers.dev"
+  }
+}

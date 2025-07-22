@@ -8,7 +8,11 @@
   ],
   "scripts": {
     "build": "turbo build",
+    "build:api": "turbo build --filter=@fitai/api",
+    "build:web": "turbo build --filter=@fitai/web",
     "dev": "turbo dev",
+    "dev:api": "turbo dev --filter=@fitai/api",
+    "dev:web": "turbo dev --filter=@fitai/web",
     "lint": "turbo lint",
     "type-check": "turbo type-check",
     "clean": "turbo clean"
