@@ -54,6 +54,15 @@ jobs:
       - name: Build API
         run: npm run build:api
 
+      - name: List files for debugging
+        run: |
+          echo "Files in apps/api:"
+          ls -la apps/api/
+          echo "Files in apps/api/dist:"
+          ls -la apps/api/dist/ || echo "dist directory not found"
+          echo "Content of wrangler.toml:"
+          cat apps/api/wrangler.toml
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
