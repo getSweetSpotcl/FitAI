@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "build": "tsc || true",
+    "build": "tsc --noEmitOnError false || echo 'Compiled with errors but JS files generated'",
     "lint": "biome check .",
     "type-check": "tsc --noEmit"
   },
