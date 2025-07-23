@@ -1,7 +1,10 @@
 name = "fitai-web"
-main = "dist/index.js"
+# Temporarily disable web deployment until properly configured
+# main = "dist/index.js"
+# compatibility_date = "2024-12-30"
+# compatibility_flags = ["nodejs_compat"]
+# For now, use standard Next.js build output
 compatibility_date = "2024-12-30"
-compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "development"
