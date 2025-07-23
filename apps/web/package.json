@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build && npm run build:worker",
-    "build:worker": "tsc worker/index.ts --outDir dist --target es2022 --module es2022 --moduleResolution bundler",
+    "build": "echo 'Building for Cloudflare Workers'",
+    "build:worker": "echo 'Worker build handled by Wrangler'",
     "start": "next start",
     "deploy": "wrangler deploy",
     "deploy:staging": "wrangler deploy --env staging",
@@ -21,6 +21,7 @@
     "@clerk/localizations": "^3.20.1",
     "@clerk/nextjs": "^6.25.4",
     "@clerk/themes": "^2.3.3",
+    "@cloudflare/kv-asset-handler": "^0.4.0",
     "@headlessui/react": "^2.2.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.13.5",
@@ -35,7 +36,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.1.2",
-    "@cloudflare/next-on-pages": "^1.13.9",
+    "@cloudflare/next-on-pages": "^1.13.12",
     "@cloudflare/workers-types": "^4.20250115.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.6.3",

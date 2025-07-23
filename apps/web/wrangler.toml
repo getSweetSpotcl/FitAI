@@ -1,10 +1,7 @@
 name = "fitai-web"
-# Temporarily disable web deployment until properly configured
-# main = "dist/index.js"
-# compatibility_date = "2024-12-30"
-# compatibility_flags = ["nodejs_compat"]
-# For now, use standard Next.js build output
+main = "worker/index.ts"
 compatibility_date = "2024-12-30"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "development"
@@ -33,18 +30,12 @@ routes = [
 ENVIRONMENT = "staging"
 NEXT_PUBLIC_API_URL = "https://api-staging.getfitia.com"
 
-# KV Namespace for static assets and caching
+# Static content configuration for Cloudflare Workers Sites
+[site]
+bucket = "./public"
+
+# KV namespace for static content
 [[kv_namespaces]]
-binding = "ASSETS"
-id = "web-assets-kv-namespace-id"
-preview_id = "web-assets-kv-namespace-id"
-
-# Production KV namespace
-[[env.production.kv_namespaces]]
-binding = "ASSETS"
-id = "web-assets-production-kv-id"
-
-# Staging KV namespace
-[[env.staging.kv_namespaces]]
-binding = "ASSETS"
-id = "web-assets-staging-kv-id"
+binding = "__STATIC_CONTENT"
+id = "web-static-content-dev"
+preview_id = "web-static-content-dev"
