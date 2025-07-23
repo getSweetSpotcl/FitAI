@@ -52,4 +52,4 @@ ENVIRONMENT = "staging"
 # Staging KV namespace
 [[env.staging.kv_namespaces]]
 binding = "CACHE"
-id = "your-staging-kv-namespace-id"
+id = "1608e2c3fe9c4adc86ee9d73d156920d"
