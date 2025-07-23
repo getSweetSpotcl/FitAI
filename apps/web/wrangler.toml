@@ -1,0 +1,47 @@
+name = "fitai-web"
+main = "dist/index.js"
+compatibility_date = "2024-12-30"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "development"
+NEXT_PUBLIC_API_URL = "http://localhost:8787"
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_development_key"
+
+# Routes configuration for custom domains
+[env.production]
+name = "fitai-web-production"
+routes = [
+  { pattern = "getfitia.com/*", zone_name = "getfitia.com" },
+  { pattern = "www.getfitia.com/*", zone_name = "getfitia.com" }
+]
+
+[env.production.vars]
+ENVIRONMENT = "production"
+NEXT_PUBLIC_API_URL = "https://api.getfitia.com"
+
+[env.staging]
+name = "fitai-web-staging"
+routes = [
+  { pattern = "staging.getfitia.com/*", zone_name = "getfitia.com" }
+]
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+NEXT_PUBLIC_API_URL = "https://api-staging.getfitia.com"
+
+# KV Namespace for static assets and caching
+[[kv_namespaces]]
+binding = "ASSETS"
+id = "web-assets-kv-namespace-id"
+preview_id = "web-assets-kv-namespace-id"
+
+# Production KV namespace
+[[env.production.kv_namespaces]]
+binding = "ASSETS"
+id = "web-assets-production-kv-id"
+
+# Staging KV namespace
+[[env.staging.kv_namespaces]]
+binding = "ASSETS"
+id = "web-assets-staging-kv-id"

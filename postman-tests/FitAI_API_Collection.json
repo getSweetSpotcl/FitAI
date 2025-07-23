@@ -1,0 +1,757 @@
+{
+  "info": {
+    "name": "FitAI API Collection",
+    "description": "Complete API collection for FitAI fitness application with Chilean market focus",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "{{base_url}}",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "👤 Users",
+      "item": [
+        {
+          "name": "Get Current User Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "me"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/users/me",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "users", "me"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"user_clkj2nxyz000001\",\n    \"clerkUserId\": \"user_2NxyzABC123\",\n    \"email\": \"juan.perez@gmail.com\",\n    \"name\": \"Juan Pérez\",\n    \"plan\": \"premium\",\n    \"role\": \"user\",\n    \"profile\": {\n      \"goals\": [\"muscle_gain\", \"strength\"],\n      \"experienceLevel\": \"intermediate\",\n      \"availableDays\": 4,\n      \"height\": 175,\n      \"weight\": 70,\n      \"age\": 28,\n      \"equipment\": [\"dumbbell\", \"barbell\"],\n      \"workoutLocation\": \"gym\",\n      \"injuries\": []\n    },\n    \"stats\": {\n      \"workoutsCompleted\": 45,\n      \"currentStreak\": 7,\n      \"prsSet\": 12\n    },\n    \"createdAt\": \"2024-01-01T00:00:00Z\",\n    \"updatedAt\": \"2024-01-15T12:00:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Juan Pérez González\",\n  \"profile\": {\n    \"goals\": [\"muscle_gain\", \"fat_loss\"],\n    \"experienceLevel\": \"advanced\",\n    \"availableDays\": 5,\n    \"height\": 175,\n    \"weight\": 72,\n    \"age\": 28,\n    \"equipment\": [\"dumbbell\", \"barbell\", \"kettlebell\"],\n    \"workoutLocation\": \"home\",\n    \"injuries\": [\"lower_back\"]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "me"]
+            }
+          }
+        },
+        {
+          "name": "Get User Progress",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/progress?period=last_30_days",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "me", "progress"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "last_30_days",
+                  "description": "Options: last_7_days, last_30_days, last_90_days"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update User Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"language\": \"es\",\n  \"units\": \"metric\",\n  \"notifications\": {\n    \"workouts\": true,\n    \"achievements\": true,\n    \"social\": false\n  },\n  \"privacy\": {\n    \"profileVisibility\": \"friends\",\n    \"shareWorkouts\": true\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/preferences",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "me", "preferences"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏋️ Exercises",
+      "item": [
+        {
+          "name": "Get All Exercises",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/exercises?category=strength&muscle_group=chest&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "exercises"],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "strength",
+                  "description": "Filter by category"
+                },
+                {
+                  "key": "muscle_group",
+                  "value": "chest",
+                  "description": "Filter by muscle group"
+                },
+                {
+                  "key": "equipment",
+                  "value": "barbell",
+                  "description": "Filter by equipment",
+                  "disabled": true
+                },
+                {
+                  "key": "difficulty",
+                  "value": "intermediate",
+                  "description": "Filter by difficulty",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Max results (default: 50)"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Exercise by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/exercises/{{exercise_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "exercises", "{{exercise_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Search Exercises",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/exercises/search/press banca?limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "exercises", "search", "press banca"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Exercise Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/exercises/meta/categories",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "exercises", "meta", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Get Muscle Groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/exercises/meta/muscle-groups",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "exercises", "meta", "muscle-groups"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📋 Routines",
+      "item": [
+        {
+          "name": "Get User Routines",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/routines",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "routines"]
+            }
+          }
+        },
+        {
+          "name": "Get Routine by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/routines/{{routine_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "routines", "{{routine_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Create New Routine",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rutina Tren Superior\",\n  \"description\": \"Enfoque en pecho, espalda y brazos\",\n  \"difficulty\": \"intermediate\",\n  \"estimatedDuration\": 60,\n  \"targetMuscleGroups\": [\"chest\", \"back\", \"arms\"],\n  \"equipmentNeeded\": [\"barbell\", \"dumbbell\"],\n  \"isAiGenerated\": false,\n  \"routineData\": {\n    \"exercises\": [\n      {\n        \"exerciseId\": \"ex_bench_press\",\n        \"sets\": 3,\n        \"reps\": \"8-10\",\n        \"restSeconds\": 120,\n        \"weight\": 80\n      },\n      {\n        \"exerciseId\": \"ex_bent_over_row\",\n        \"sets\": 3,\n        \"reps\": \"8-10\",\n        \"restSeconds\": 120,\n        \"weight\": 70\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/routines",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "routines"]
+            }
+          }
+        },
+        {
+          "name": "Update Routine",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rutina Tren Superior Mejorada\",\n  \"description\": \"Rutina actualizada con más ejercicios\",\n  \"difficulty\": \"advanced\",\n  \"estimatedDuration\": 75\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/routines/{{routine_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "routines", "{{routine_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💪 Workouts",
+      "item": [
+        {
+          "name": "Get Workout Sessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/workouts/sessions?status=completed&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workouts", "sessions"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "completed",
+                  "description": "Filter by status: active, completed, paused"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Start New Workout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"routineId\": \"routine_123\",\n  \"plannedExercises\": [\n    {\n      \"exerciseId\": \"ex_bench_press\",\n      \"plannedSets\": 3,\n      \"plannedReps\": 10,\n      \"plannedWeight\": 80\n    },\n    {\n      \"exerciseId\": \"ex_squat\",\n      \"plannedSets\": 3,\n      \"plannedReps\": 12,\n      \"plannedWeight\": 100\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/workouts/sessions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workouts", "sessions"]
+            }
+          }
+        },
+        {
+          "name": "Get Workout Session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/workouts/sessions/{{session_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workouts", "sessions", "{{session_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Log Exercise Set",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reps\": 10,\n  \"weight\": 80,\n  \"rpe\": 8,\n  \"notes\": \"Se sintió fuerte hoy, buen control\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/workouts/sessions/{{session_id}}/exercises/{{exercise_id}}/sets",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workouts", "sessions", "{{session_id}}", "exercises", "{{exercise_id}}", "sets"]
+            }
+          }
+        },
+        {
+          "name": "Complete Workout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"overallRating\": 8,\n  \"notes\": \"Excelente sesión, me sentí muy fuerte\",\n  \"completedAt\": \"2024-01-15T10:30:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/workouts/sessions/{{session_id}}/complete",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workouts", "sessions", "{{session_id}}", "complete"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🤖 AI",
+      "item": [
+        {
+          "name": "Generate AI Routine",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"goals\": [\"muscle_gain\", \"strength\"],\n  \"experienceLevel\": \"intermediate\",\n  \"availableDays\": 4,\n  \"sessionDuration\": 60,\n  \"equipment\": [\"dumbbell\", \"barbell\"],\n  \"targetMuscleGroups\": [\"chest\", \"back\", \"legs\"],\n  \"preferences\": {\n    \"workoutStyle\": \"strength\",\n    \"intensity\": \"moderate\",\n    \"focusArea\": \"upper_body\"\n  },\n  \"limitations\": {\n    \"injuries\": [\"lower_back\"],\n    \"timeConstraints\": \"lunch_break\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/ai/generate-routine",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "ai", "generate-routine"]
+            }
+          }
+        },
+        {
+          "name": "Get Workout Advice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workoutSessionId\": \"session_123\",\n  \"context\": \"Necesito ayuda con la técnica del press de banca, siento molestia en el hombro\",\n  \"exerciseId\": \"ex_bench_press\",\n  \"currentPerformance\": {\n    \"sets\": 2,\n    \"reps\": [8, 6],\n    \"weights\": [80, 80],\n    \"rpe\": [7, 9]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/ai/workout-advice",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "ai", "workout-advice"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💳 Payments",
+      "item": [
+        {
+          "name": "Get Subscription Plans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/plans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "plans"]
+            }
+          }
+        },
+        {
+          "name": "Create Payment Preference",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planId\": \"premium_monthly\",\n  \"currency\": \"CLP\",\n  \"userInfo\": {\n    \"name\": \"Juan Pérez\",\n    \"email\": \"juan.perez@gmail.com\",\n    \"phone\": \"+56912345678\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/create-preference",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "create-preference"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏥 Health",
+      "item": [
+        {
+          "name": "Health Status Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/health/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "health", "status"]
+            }
+          }
+        },
+        {
+          "name": "Sync Apple Health Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataType\": \"workouts\",\n  \"data\": {\n    \"workouts\": [\n      {\n        \"appleHealthUuid\": \"ABC123-DEF456-GHI789\",\n        \"workoutType\": \"running\",\n        \"startTime\": \"2024-01-15T08:00:00Z\",\n        \"endTime\": \"2024-01-15T08:30:00Z\",\n        \"durationMinutes\": 30,\n        \"caloriesBurned\": 250,\n        \"distanceKm\": 5.0,\n        \"averageHeartRate\": 150,\n        \"maxHeartRate\": 175,\n        \"sourceApp\": \"Apple Watch\",\n        \"metadata\": {\n          \"weather\": \"sunny\",\n          \"route\": \"park_loop\"\n        }\n      }\n    ]\n  },\n  \"lastSyncAt\": \"2024-01-14T08:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/health/sync",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "health", "sync"]
+            }
+          }
+        },
+        {
+          "name": "Get Health Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/health/metrics?metricTypes=heart_rate,steps&startDate=2024-01-01&endDate=2024-01-15&aggregation=daily",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "health", "metrics"],
+              "query": [
+                {
+                  "key": "metricTypes",
+                  "value": "heart_rate,steps",
+                  "description": "Comma-separated metric types"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01",
+                  "description": "ISO date string"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-01-15",
+                  "description": "ISO date string"
+                },
+                {
+                  "key": "aggregation",
+                  "value": "daily",
+                  "description": "raw, daily, weekly, monthly"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get HealthKit Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/health/healthkit/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "health", "healthkit", "status"]
+            }
+          }
+        },
+        {
+          "name": "Update HealthKit Permissions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": {\n    \"read\": [\"heart_rate\", \"workout\", \"step_count\", \"active_energy\"],\n    \"write\": [\"workout\"],\n    \"share\": [\"workout\", \"heart_rate\"]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/health/healthkit/permissions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "health", "healthkit", "permissions"]
+            }
+          }
+        },
+        {
+          "name": "Get Health Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/health/dashboard/comprehensive?period=month&includeInsights=true&includeGoals=true",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "health", "dashboard", "comprehensive"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month",
+                  "description": "week, month, quarter, year"
+                },
+                {
+                  "key": "includeInsights",
+                  "value": "true"
+                },
+                {
+                  "key": "includeGoals",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Social",
+      "item": [
+        {
+          "name": "Get Social Feed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/social/feed?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "social", "feed"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Social Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"¡Gran entrenamiento hoy! Nuevo PR en press de banca 💪\",\n  \"postType\": \"workout\",\n  \"workoutSessionId\": \"session_123\",\n  \"mediaUrls\": [\"https://example.com/workout-photo.jpg\"],\n  \"visibility\": \"public\",\n  \"tags\": [\"#PR\", \"#benchpress\", \"#strength\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/social/posts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "social", "posts"]
+            }
+          }
+        },
+        {
+          "name": "Get Leaderboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/social/leaderboard?period=month&metric=workouts&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "social", "leaderboard"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month",
+                  "description": "week, month, all_time"
+                },
+                {
+                  "key": "metric",
+                  "value": "workouts",
+                  "description": "workouts, volume, streak"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

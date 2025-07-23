@@ -1,0 +1,61 @@
+{
+  "id": "fitai-production-env",
+  "name": "FitAI - Production",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "https://fitai-api.your-domain.com",
+      "enabled": true,
+      "type": "default",
+      "description": "Update with your actual production domain"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "enabled": true,
+      "type": "secret",
+      "description": "Production JWT token from Clerk authentication - Update this after login"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "Production user ID for testing"
+    },
+    {
+      "key": "exercise_id",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "Production exercise ID for testing"
+    },
+    {
+      "key": "routine_id",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "Production routine ID for testing"
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "Production workout session ID for testing"
+    },
+    {
+      "key": "api_version",
+      "value": "v1",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "environment",
+      "value": "production",
+      "enabled": true,
+      "type": "default"
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

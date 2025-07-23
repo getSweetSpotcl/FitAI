@@ -1,38 +1,41 @@
-# FitAI Web Frontend - Cloudflare Pages Deployment
+# FitAI Web Frontend - Cloudflare Workers Deployment
 
 ## Prerequisites
 
-1. Cloudflare account
+1. Cloudflare account with domain getfitia.com configured
 2. GitHub repository connected (https://github.com/getSweetSpotcl/FitAI)
 3. API deployed to Cloudflare Workers
+4. Wrangler CLI installed
 
 ## Deployment Methods
 
-### Method 1: GitHub Integration (Recommended)
+### Method 1: Automated CI/CD (Recommended)
 
-1. **Go to Cloudflare Dashboard**
-   - Navigate to Workers & Pages > Create application > Pages
-   - Connect to Git
+Deployments happen automatically via GitHub Actions:
 
-2. **Connect GitHub Repository**
-   - Select GitHub account: getSweetSpotcl
-   - Select repository: FitAI
-   - Click "Begin setup"
+- **Pull Requests**: Deploy to staging environment
+  - API: `api-staging.getfitia.com`
+  - Web: `staging.getfitia.com`
 
-3. **Configure Build Settings**
-   - **Production branch**: main
-   - **Build command**: `cd apps/web && npm install && npm run build`
-   - **Build output directory**: `apps/web/.next`
-   - **Root directory**: `/`
-   - **Environment variables**:
-     ```
-     NEXT_PUBLIC_API_URL = https://fitai-api.sweetspot-627.workers.dev
-     NODE_VERSION = 18.17.0
-     ```
+- **Main Branch**: Deploy to production environment
+  - API: `api.getfitia.com` 
+  - Web: `getfitia.com`
 
-4. **Deploy**
-   - Click "Save and Deploy"
-   - Wait for build to complete (3-5 minutes)
+### Method 2: Manual Deployment with Wrangler
+
+1. **Build and Deploy API**
+   ```bash
+   cd apps/api
+   npm run build
+   npm run deploy:production  # or deploy:staging
+   ```
+
+2. **Build and Deploy Web**
+   ```bash
+   cd apps/web
+   npm run build
+   npm run deploy:production  # or deploy:staging
+   ```
 
 ### Method 2: Direct Upload with Wrangler
 

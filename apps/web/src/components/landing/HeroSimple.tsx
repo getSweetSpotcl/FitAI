@@ -1,10 +1,31 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import { Button } from '../ui';
 import { Download, Play } from 'lucide-react';
 
 export const HeroSimple: React.FC = () => {
+  const router = useRouter();
+  const { isSignedIn } = useUser();
+
+  const handleGetStarted = () => {
+    if (isSignedIn) {
+      router.push('/dashboard');
+    } else {
+      router.push('/sign-up');
+    }
+  };
+
+  const handleDemo = () => {
+    // For now, scroll to features or redirect to a demo page
+    const element = document.querySelector('#features');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background gradient */}
@@ -62,13 +83,15 @@ export const HeroSimple: React.FC = () => {
                 size="lg" 
                 leftIcon={<Download className="w-5 h-5" />}
                 className="animate-pulse-glow"
+                onClick={handleGetStarted}
               >
-                Descargar Gratis
+                {isSignedIn ? 'Ir a Dashboard' : 'Descargar Gratis'}
               </Button>
               <Button 
                 variant="secondary" 
                 size="lg"
                 leftIcon={<Play className="w-5 h-5" />}
+                onClick={handleDemo}
               >
                 Ver Demo
               </Button>

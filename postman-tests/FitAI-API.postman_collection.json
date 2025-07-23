@@ -1,0 +1,1002 @@
+{
+  "info": {
+    "_postman_id": "fitai-api-collection-2025",
+    "name": "FitAI API Collection",
+    "description": "Complete API testing collection for FitAI fitness application",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has API name', function () {",
+                  "  pm.expect(pm.response.json().name).to.eql('FitAI API');",
+                  "});",
+                  "",
+                  "pm.test('Response has version', function () {",
+                  "  pm.expect(pm.response.json().version).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/",
+              "host": ["{{BASE_URL}}"],
+              "path": [""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has user email', function () {",
+                  "  pm.expect(pm.response.json().user.email).to.eql('test@fitai.cl');",
+                  "});",
+                  "",
+                  "pm.test('Response has token', function () {",
+                  "  pm.expect(pm.response.json().token).to.be.a('string');",
+                  "});",
+                  "",
+                  "// Guardar token automáticamente",
+                  "if (pm.response.json().token) {",
+                  "  pm.environment.set('AUTH_TOKEN', pm.response.json().token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@fitai.cl\",\n  \"password\": \"password123\",\n  \"name\": \"Test User\",\n  \"plan\": \"free\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/auth/register",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has token', function () {",
+                  "  pm.expect(pm.response.json().token).to.be.a('string');",
+                  "});",
+                  "",
+                  "pm.test('Response has user data', function () {",
+                  "  pm.expect(pm.response.json().user).to.be.an('object');",
+                  "});",
+                  "",
+                  "// Guardar token y user ID automáticamente",
+                  "if (pm.response.json().token) {",
+                  "  pm.environment.set('AUTH_TOKEN', pm.response.json().token);",
+                  "}",
+                  "",
+                  "if (pm.response.json().user.id) {",
+                  "  pm.environment.set('USER_ID', pm.response.json().user.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@fitai.cl\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/auth/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has user data', function () {",
+                  "  pm.expect(pm.response.json().user).to.be.an('object');",
+                  "});",
+                  "",
+                  "pm.test('User has email', function () {",
+                  "  pm.expect(pm.response.json().user.email).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/users/profile",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "users", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Profile updated successfully', function () {",
+                  "  pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Test User\",\n  \"height_cm\": 175,\n  \"weight_kg\": 70,\n  \"fitness_level\": \"intermediate\",\n  \"goals\": [\"weight_loss\", \"muscle_gain\"]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/users/profile",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "users", "profile"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Exercises",
+      "item": [
+        {
+          "name": "Get All Exercises",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has exercises array', function () {",
+                  "  pm.expect(pm.response.json().exercises).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Exercises have required fields', function () {",
+                  "  if(pm.response.json().exercises.length > 0) {",
+                  "    pm.expect(pm.response.json().exercises[0]).to.have.property('id');",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/exercises?limit=20&muscle_groups=chest,shoulders",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "exercises"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "muscle_groups",
+                  "value": "chest,shoulders"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Exercises",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has data array', function () {",
+                  "  pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Response has count', function () {",
+                  "  pm.expect(pm.response.json().count).to.be.a('number');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/exercises/search/push?limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "exercises", "search", "push"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Exercise by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 404', function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('Exercise has ID', function () {",
+                  "    pm.expect(pm.response.json().exercise.id).to.be.a('string');",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/exercises/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "exercises", "1"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Exercise Categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has categories', function () {",
+                  "  pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/exercises/meta/categories",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "exercises", "meta", "categories"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Routines",
+      "item": [
+        {
+          "name": "Get User Routines",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has routines array', function () {",
+                  "  pm.expect(pm.response.json().routines).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/routines",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "routines"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Routine",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Routine created successfully', function () {",
+                  "  pm.expect(pm.response.json().routine).to.be.an('object');",
+                  "});",
+                  "",
+                  "// Guardar routine ID automáticamente",
+                  "if (pm.response.json().routine && pm.response.json().routine.id) {",
+                  "  pm.environment.set('ROUTINE_ID', pm.response.json().routine.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Routine\",\n  \"description\": \"A test routine for Postman\",\n  \"difficulty\": \"intermediate\",\n  \"duration_weeks\": 4,\n  \"days_per_week\": 3,\n  \"focus_areas\": [\"strength\", \"muscle_gain\"]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/routines",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "routines"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Workouts",
+      "item": [
+        {
+          "name": "Create Workout Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Session created successfully', function () {",
+                  "  pm.expect(pm.response.json().session).to.be.an('object');",
+                  "});",
+                  "",
+                  "// Guardar session ID automáticamente",
+                  "if (pm.response.json().session && pm.response.json().session.id) {",
+                  "  pm.environment.set('WORKOUT_SESSION_ID', pm.response.json().session.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Workout Session\",\n  \"routine_id\": \"{{ROUTINE_ID}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/workouts",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "workouts"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Workout Set",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Set added successfully', function () {",
+                  "  pm.expect(pm.response.json().set).to.be.an('object');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"exercise_id\": \"1\",\n  \"set_number\": 1,\n  \"reps\": 10,\n  \"weight_kg\": 50,\n  \"rpe\": 7\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/workouts/{{WORKOUT_SESSION_ID}}/sets",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "workouts", "{{WORKOUT_SESSION_ID}}", "sets"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Workout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Workout completed successfully', function () {",
+                  "  pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration_minutes\": 45,\n  \"total_volume_kg\": 500,\n  \"average_rpe\": 7,\n  \"notes\": \"Great workout session!\",\n  \"mood\": \"energetic\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/workouts/{{WORKOUT_SESSION_ID}}/complete",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "workouts", "{{WORKOUT_SESSION_ID}}", "complete"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Workout History",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has workouts', function () {",
+                  "  pm.expect(pm.response.json().workouts).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/workouts?limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "workouts"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AI Services",
+      "item": [
+        {
+          "name": "Generate AI Routine",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('AI routine generated', function () {",
+                  "  pm.expect(pm.response.json().routine).to.be.an('object');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fitnessLevel\": \"intermediate\",\n  \"goals\": [\"muscle_gain\", \"strength\"],\n  \"availableDays\": 4,\n  \"availableEquipment\": [\"dumbbells\", \"barbell\", \"machine\"],\n  \"timePerSession\": 60\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/ai/generate-routine",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "ai", "generate-routine"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Premium AI",
+      "item": [
+        {
+          "name": "Generate Advanced Routine (Premium)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 403', function () {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('Advanced routine generated', function () {",
+                  "    pm.expect(pm.response.json().routine).to.be.an('object');",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"experienceLevel\": \"advanced\",\n  \"goals\": [\"strength\", \"powerlifting\"],\n  \"availableDays\": 5,\n  \"availableEquipment\": [\"barbell\", \"dumbbells\", \"rack\"],\n  \"periodizationPreference\": \"linear\",\n  \"timeframe\": 12\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/premium-ai/generate-advanced-routine",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "premium-ai", "generate-advanced-routine"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Analyze Fatigue (Premium)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 403', function () {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('Fatigue analysis completed', function () {",
+                  "    pm.expect(pm.response.json().analysis).to.be.an('object');",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workoutHistory\": [\n    {\"date\": \"2025-01-15\", \"rpe\": 8, \"volume\": 1200},\n    {\"date\": \"2025-01-17\", \"rpe\": 7, \"volume\": 1100},\n    {\"date\": \"2025-01-19\", \"rpe\": 9, \"volume\": 1300}\n  ],\n  \"timeframe\": \"week\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/premium-ai/analyze-fatigue",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "premium-ai", "analyze-fatigue"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Payment created with init_point', function () {",
+                  "  pm.expect(pm.response.json().init_point).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planType\": \"premium\",\n  \"amount\": 9990,\n  \"description\": \"FitAI Premium Monthly Plan\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/payments/create",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "payments", "create"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health & Analytics",
+      "item": [
+        {
+          "name": "Get Health Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Health metrics available', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('object');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/health",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Analytics Dashboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Analytics data available', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('object');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/analytics/dashboard?timeframe=month",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "analytics", "dashboard"],
+              "query": [
+                {
+                  "key": "timeframe",
+                  "value": "month"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Social",
+      "item": [
+        {
+          "name": "Get Social Feed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Feed data available', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('object');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/social/feed?limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "social", "feed"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "https://fitai-api.sweetspot-627.workers.dev",
+      "type": "string"
+    },
+    {
+      "key": "AUTH_TOKEN",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "USER_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ROUTINE_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "WORKOUT_SESSION_ID",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

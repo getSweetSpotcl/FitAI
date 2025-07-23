@@ -15,9 +15,11 @@ export function createDatabaseClient(connectionString: string): DatabaseClient {
 export interface User {
   id: string;
   email: string;
-  password_hash: string;
   name: string;
-  plan: 'free' | 'premium' | 'pro';
+  clerk_user_id?: string;
+  user_role: 'user' | 'admin';
+  auth_provider: 'clerk' | 'jwt';
+  subscription_plan: 'free' | 'premium' | 'pro';
   profile_picture_url?: string;
   date_of_birth?: string;
   gender?: string;
@@ -29,25 +31,31 @@ export interface User {
   updated_at: string;
   last_login_at?: string;
   is_active: boolean;
+  deleted_at?: string;
+  // Legacy fields for backwards compatibility
+  password_hash?: string;
+  plan?: 'free' | 'premium' | 'pro';
 }
 
 export interface Exercise {
   id: string;
   name: string;
-  name_es: string;
-  category_id: string;
+  name_es?: string;
+  category?: string;
+  category_id?: string;
   muscle_groups: string[];
   equipment: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  instructions: string[];
-  instructions_es: string[];
-  tips: string[];
-  tips_es: string[];
-  common_mistakes: string[];
-  common_mistakes_es: string[];
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
+  instructions?: string | string[];
+  instructions_es?: string[];
+  tips?: string[];
+  tips_es?: string[];
+  common_mistakes?: string[];
+  common_mistakes_es?: string[];
   video_url?: string;
   image_urls?: string[];
-  is_compound: boolean;
+  is_compound?: boolean;
   calories_per_minute?: number;
   created_at: string;
   updated_at: string;
@@ -156,7 +164,7 @@ export async function getUserByEmail(sql: DatabaseClient, email: string): Promis
   try {
     const result = await sql`
       SELECT * FROM users 
-      WHERE email = ${email} AND is_active = true 
+      WHERE email = ${email} AND is_active = true AND deleted_at IS NULL
       LIMIT 1
     `;
     return result[0] || null;
@@ -166,13 +174,69 @@ export async function getUserByEmail(sql: DatabaseClient, email: string): Promis
   }
 }
 
+export async function getUserByClerkId(sql: DatabaseClient, clerkUserId: string): Promise<User | null> {
+  try {
+    const result = await sql`
+      SELECT * FROM users 
+      WHERE clerk_user_id = ${clerkUserId} AND is_active = true AND deleted_at IS NULL
+      LIMIT 1
+    `;
+    return result[0] || null;
+  } catch (error) {
+    console.error('Error getting user by Clerk ID:', error);
+    throw error;
+  }
+}
+
+export async function getUserById(sql: DatabaseClient, userId: string): Promise<User | null> {
+  try {
+    const result = await sql`
+      SELECT * FROM users 
+      WHERE id = ${userId} AND is_active = true AND deleted_at IS NULL
+      LIMIT 1
+    `;
+    return result[0] || null;
+  } catch (error) {
+    console.error('Error getting user by ID:', error);
+    throw error;
+  }
+}
+
 export async function createUser(sql: DatabaseClient, userData: Omit<User, 'id' | 'created_at' | 'updated_at' | 'is_active'>): Promise<User> {
   try {
     const result = await sql`
-      INSERT INTO users (email, password_hash, name, plan, profile_picture_url, date_of_birth, gender, height_cm, weight_kg, fitness_level, goals)
-      VALUES (${userData.email}, ${userData.password_hash}, ${userData.name}, ${userData.plan}, ${userData.profile_picture_url || null}, 
-              ${userData.date_of_birth || null}, ${userData.gender || null}, ${userData.height_cm || null}, 
-              ${userData.weight_kg || null}, ${userData.fitness_level || null}, ${userData.goals || null})
+      INSERT INTO users (
+        email, 
+        name, 
+        clerk_user_id, 
+        user_role, 
+        auth_provider, 
+        subscription_plan, 
+        profile_picture_url, 
+        date_of_birth, 
+        gender, 
+        height_cm, 
+        weight_kg, 
+        fitness_level, 
+        goals,
+        password_hash
+      )
+      VALUES (
+        ${userData.email}, 
+        ${userData.name}, 
+        ${userData.clerk_user_id || null}, 
+        ${userData.user_role || 'user'}, 
+        ${userData.auth_provider || 'clerk'}, 
+        ${userData.subscription_plan || 'free'}, 
+        ${userData.profile_picture_url || null}, 
+        ${userData.date_of_birth || null}, 
+        ${userData.gender || null}, 
+        ${userData.height_cm || null}, 
+        ${userData.weight_kg || null}, 
+        ${userData.fitness_level || null}, 
+        ${userData.goals || null},
+        ${userData.password_hash || null}
+      )
       RETURNING *
     `;
     return result[0];
@@ -227,8 +291,14 @@ export async function getExercises(sql: DatabaseClient, filters?: {
     }
     
     // Para queries dinámicas con Neon, necesitamos usar sql.unsafe
-    const result = await sql.unsafe(query, params) as any;
-    return result as Exercise[];
+    // Interpolate params into the query string
+    let interpolatedQuery = query;
+    params.forEach((param, index) => {
+      interpolatedQuery = interpolatedQuery.replace(`$${index + 1}`, `'${param}'`);
+    });
+    
+    const result = await sql.unsafe(interpolatedQuery);
+    return result as unknown as Exercise[];
   } catch (error) {
     console.error('Error getting exercises:', error);
     throw error;

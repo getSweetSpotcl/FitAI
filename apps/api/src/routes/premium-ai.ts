@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { authMiddleware } from '../middleware/auth';
+import { requirePremium, requirePro } from '../middleware/plan-access';
 import { AIResourceManager, UserProfile } from '../lib/ai-cost-control';
 import { PremiumAIService } from '../lib/premium-ai-service';
 
@@ -23,24 +24,8 @@ const premiumAi = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 // Apply auth middleware to all routes
 premiumAi.use('*', authMiddleware);
 
-// Middleware to check premium access
-const premiumMiddleware = async (c: any, next: any) => {
-  const user = c.get('user');
-  if (!user) {
-    throw new HTTPException(401, { message: 'Usuario no autenticado' });
-  }
-
-  if (user.plan === 'free') {
-    throw new HTTPException(403, { 
-      message: 'Esta función requiere un plan Premium o Pro. Actualiza tu suscripción.' 
-    });
-  }
-
-  await next();
-};
-
-// Generar rutina avanzada con periodización
-premiumAi.post('/generate-advanced-routine', premiumMiddleware, async (c) => {
+// Generar rutina avanzada con periodización - Requires Premium or Pro
+premiumAi.post('/generate-advanced-routine', requirePremium(), async (c) => {
   try {
     const user = c.get('user');
     
@@ -104,20 +89,13 @@ premiumAi.post('/generate-advanced-routine', premiumMiddleware, async (c) => {
   }
 });
 
-// Análisis avanzado de patrones de fatiga
-premiumAi.post('/analyze-fatigue', premiumMiddleware, async (c) => {
+// Análisis avanzado de patrones de fatiga - Requires Pro
+premiumAi.post('/analyze-fatigue', requirePro(), async (c) => {
   try {
     const user = c.get('user');
     
     if (!user) {
       throw new HTTPException(401, { message: 'Usuario no autenticado' });
-    }
-    
-    // Solo Pro tiene acceso a análisis de fatiga
-    if (user.plan !== 'pro') {
-      throw new HTTPException(403, { 
-        message: 'El análisis de fatiga requiere FitAI Pro' 
-      });
     }
 
     const { workoutHistory, timeframe } = await c.req.json();
@@ -158,8 +136,8 @@ premiumAi.post('/analyze-fatigue', premiumMiddleware, async (c) => {
   }
 });
 
-// Predicción de progresión de carga
-premiumAi.post('/predict-load-progression', premiumMiddleware, async (c) => {
+// Predicción de progresión de carga - Requires Premium or Pro
+premiumAi.post('/predict-load-progression', requirePremium(), async (c) => {
   try {
     const user = c.get('user');
     
@@ -201,8 +179,8 @@ premiumAi.post('/predict-load-progression', premiumMiddleware, async (c) => {
   }
 });
 
-// Análisis de técnica de ejercicio con video (placeholder)
-premiumAi.post('/analyze-exercise-form', premiumMiddleware, async (c) => {
+// Análisis de técnica de ejercicio con video - Requires Pro
+premiumAi.post('/analyze-exercise-form', requirePro(), async (c) => {
   try {
     const user = c.get('user');
     
@@ -296,8 +274,8 @@ premiumAi.get('/features', async (c) => {
   }
 });
 
-// Generar reporte de progreso avanzado
-premiumAi.post('/generate-progress-report', premiumMiddleware, async (c) => {
+// Generar reporte de progreso avanzado - Requires Premium or Pro
+premiumAi.post('/generate-progress-report', requirePremium(), async (c) => {
   try {
     const user = c.get('user');
     

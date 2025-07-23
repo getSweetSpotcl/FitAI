@@ -5,6 +5,13 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "development"
+DATABASE_URL = "postgresql://test:test@localhost:5432/fitai_test"
+CLERK_SECRET_KEY = "sk_test_development_key"
+CLERK_WEBHOOK_SECRET = "whsec_development_secret"
+OPENAI_API_KEY = "sk-test-key"
+MERCADOPAGO_ACCESS_TOKEN = "APP_USR-test-token"
+REDIS_URL = "redis://localhost:6379"
+REDIS_TOKEN = "test-redis-token"
 
 # KV Namespace for caching
 [[kv_namespaces]]
@@ -18,13 +25,12 @@ preview_id = "7a248575697e448b8e2a008734bdc6d3"
 # database_name = "fitai-db"
 # database_id = "your-d1-database-id"
 
-# Routes configuration (optional - can be configured in Cloudflare dashboard)
-# [[routes]]
-# pattern = "api.fitai.cl/*"
-# zone_name = "fitai.cl"
-
+# Routes configuration for custom domains
 [env.production]
 name = "fitai-api-production"
+routes = [
+  { pattern = "api.getfitia.com/*", zone_name = "getfitia.com" }
+]
 
 [env.production.vars]
 ENVIRONMENT = "production"
@@ -36,6 +42,9 @@ id = "49fe0605b32d4013b8897040197cf3ad"
 
 [env.staging]
 name = "fitai-api-staging"
+routes = [
+  { pattern = "api-staging.getfitia.com/*", zone_name = "getfitia.com" }
+]
 
 [env.staging.vars]
 ENVIRONMENT = "staging"

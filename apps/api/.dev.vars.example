@@ -1,0 +1,10 @@
+# Clerk Configuration for Development
+CLERK_PUBLISHABLE_KEY=pk_test_your_publishable_key_here
+CLERK_SECRET_KEY=sk_test_your_secret_key_here
+CLERK_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+
+# Existing Environment Variables
+DATABASE_URL=postgresql://your_neon_connection_string
+OPENAI_API_KEY=sk-proj-your_openai_key
+MERCADOPAGO_ACCESS_TOKEN=TEST-your_mercadopago_token
+JWT_SECRET=your_jwt_secret_for_legacy_support

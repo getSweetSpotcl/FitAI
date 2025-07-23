@@ -1,89 +1,237 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { authMiddleware } from '../middleware/auth';
-import { AIResourceManager, UserProfile } from '../lib/ai-cost-control';
-import { AIRoutineGenerator, RoutineGenerationRequest } from '../lib/ai-routine-generator';
+import { createDatabaseClient, getUserByClerkId } from '../db/database';
+import { AIService } from '../lib/ai-service';
+import { CacheService } from '../lib/cache-service';
+import { checkDailyUsage, getUserPlanInfo, getUpgradeOptions } from '../middleware/plan-access';
 
 type Bindings = {
   CACHE: KVNamespace;
   DATABASE_URL: string;
+  CLERK_SECRET_KEY: string;
   OPENAI_API_KEY: string;
+  REDIS_URL: string;
+  REDIS_TOKEN: string;
 };
 
 type Variables = {
   user?: {
-    id: string;
+    userId: string;
     email: string;
+    firstName?: string;
+    lastName?: string;
+    role: 'user' | 'admin';
     plan: 'free' | 'premium' | 'pro';
   };
 };
 
 const ai = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-// Apply auth middleware to all routes
-ai.use('*', authMiddleware);
+// Rate limits by plan
+const RATE_LIMITS = {
+  free: { routines: 3, coaching: 10 }, // per day
+  premium: { routines: 15, coaching: 50 }, // per day
+  pro: { routines: 50, coaching: 200 } // per day
+};
 
-// Generar rutina personalizada
+// Credit costs by feature
+const CREDIT_COSTS = {
+  routine: { free: 10, premium: 5, pro: 2 },
+  coaching: { free: 2, premium: 1, pro: 1 }
+};
+
+/**
+ * Check if user has enough credits and hasn't exceeded rate limits
+ */
+async function checkUsageLimits(
+  cacheService: CacheService,
+  userId: string,
+  userPlan: 'free' | 'premium' | 'pro',
+  feature: 'routines' | 'coaching'
+): Promise<{ allowed: boolean; reason?: string; upgradeOptions?: any }> {
+  try {
+    // Get current rate limit
+    const rateLimit = await cacheService.getRateLimit(userId, feature);
+    
+    // Check plan-based daily usage limits
+    const usageCheck = checkDailyUsage(userPlan, feature, rateLimit.count);
+    
+    if (!usageCheck.allowed) {
+      const upgradeOptions = getUpgradeOptions(userPlan);
+      const resetHours = Math.ceil((rateLimit.resetAt - Date.now()) / (1000 * 60 * 60));
+      
+      return {
+        allowed: false,
+        reason: usageCheck.limit === -1 
+          ? 'Límite ilimitado disponible'
+          : `Límite diario alcanzado (${usageCheck.limit}). Reinicia en ${resetHours}h.`,
+        upgradeOptions: upgradeOptions.available.length > 0 ? upgradeOptions : null
+      };
+    }
+
+    // Check credits (simplified - in production you'd have a proper credit system)
+    const credits = await cacheService.getUserCredits(userId);
+    const requiredCredits = CREDIT_COSTS[feature === 'routines' ? 'routine' : 'coaching'][userPlan];
+    
+    if (credits < requiredCredits) {
+      return {
+        allowed: false,
+        reason: `Créditos insuficientes. Necesitas ${requiredCredits}, tienes ${credits}.`
+      };
+    }
+
+    return { allowed: true };
+  } catch (error) {
+    console.error('Check usage limits error:', error);
+    return { allowed: true }; // Allow on error to prevent blocking
+  }
+}
+
+/**
+ * Log AI usage for cost tracking
+ */
+async function logAIUsage(
+  sql: any,
+  userId: string,
+  endpoint: string,
+  model: string,
+  promptTokens: number,
+  completionTokens: number,
+  cost: number,
+  requestData: any,
+  responseData: any,
+  cacheHit: boolean = false
+) {
+  try {
+    await sql`
+      INSERT INTO ai_usage_tracking (
+        user_id, endpoint, tokens_used, cost_usd, model_used, 
+        request_data, response_data, cache_hit
+      ) VALUES (
+        ${userId}, ${endpoint}, ${promptTokens + completionTokens}, ${cost},
+        ${model}, ${JSON.stringify(requestData)}, ${JSON.stringify(responseData)}, ${cacheHit}
+      )
+    `;
+  } catch (error) {
+    console.error('Log AI usage error:', error);
+  }
+}
+
+// Generate personalized workout routine
 ai.post('/generate-routine', async (c) => {
   try {
-    const user = c.get('user');
-    if (!user) {
+    const authUser = c.get('user');
+    if (!authUser) {
       throw new HTTPException(401, { message: 'User not authenticated' });
     }
 
-    const requestData = await c.req.json() as {
-      experienceLevel: 'beginner' | 'intermediate' | 'advanced';
-      goals: string[];
-      availableDays: number;
-      availableEquipment: string[];
-      injuries?: string[];
-      specificGoals?: string[];
-      restrictions?: string[];
-      preferredDuration?: number;
-    };
+    const requestData = await c.req.json();
+    
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const dbUser = await getUserByClerkId(sql, authUser.userId);
+    if (!dbUser) {
+      throw new HTTPException(404, { message: 'User profile not found' });
+    }
 
-    // Validar datos de entrada
-    if (!requestData.experienceLevel || !requestData.goals || !requestData.availableDays) {
+    // Initialize services
+    const aiService = new AIService(c.env.OPENAI_API_KEY);
+    const cacheService = new CacheService({
+      redisUrl: c.env.REDIS_URL,
+      redisToken: c.env.REDIS_TOKEN
+    });
+
+    // Check usage limits
+    const usageCheck = await checkUsageLimits(cacheService, dbUser.id, authUser.plan, 'routines');
+    if (!usageCheck.allowed) {
+      throw new HTTPException(429, { message: usageCheck.reason });
+    }
+
+    // Get user profile from database
+    const profileResult = await sql`
+      SELECT * FROM user_profiles WHERE user_id = ${dbUser.id} LIMIT 1
+    `;
+
+    if ((profileResult as any[]).length === 0) {
       throw new HTTPException(400, { 
-        message: 'Faltan datos requeridos: experienceLevel, goals, availableDays' 
+        message: 'Por favor completa tu perfil antes de generar rutinas' 
       });
     }
 
-    // Crear perfil del usuario
-    const userProfile: UserProfile = {
-      id: user.id,
-      plan: user.plan,
-      experienceLevel: requestData.experienceLevel,
-      goals: requestData.goals,
-      availableDays: Math.max(1, Math.min(7, requestData.availableDays)),
-      availableEquipment: requestData.availableEquipment || ['peso_corporal'],
-      injuries: requestData.injuries,
+    const profile = profileResult[0];
+    const userProfile = {
+      goals: profile.goals || [],
+      experienceLevel: profile.experience_level || 'intermediate',
+      availableDays: profile.available_days || 3,
+      equipment: profile.equipment_access || [],
+      workoutLocation: profile.workout_location || 'gym',
+      injuries: profile.injuries || [],
+      height: profile.height,
+      weight: profile.weight,
+      age: profile.age
     };
 
-    // Crear request para generación
-    const generationRequest: RoutineGenerationRequest = {
-      userProfile,
-      specificGoals: requestData.specificGoals,
-      restrictions: requestData.restrictions,
-      preferredDuration: requestData.preferredDuration,
-    };
+    // Create cache key
+    const cacheKey = cacheService.createRoutineCacheKey({
+      ...userProfile,
+      ...requestData.preferences
+    });
 
-    // Inicializar AI manager y generator
-    const aiManager = new AIResourceManager(c.env.CACHE);
-    const routineGenerator = new AIRoutineGenerator(aiManager, c.env.OPENAI_API_KEY);
+    // Check cache first
+    let routine = await cacheService.getRoutine(cacheKey);
+    let cacheHit = false;
 
-    // Generar rutina
-    const result = await routineGenerator.generateRoutine(generationRequest);
+    if (routine) {
+      cacheHit = true;
+      console.log('Routine cache hit for user:', dbUser.id);
+    } else {
+      // Generate new routine
+      console.log('Generating new routine for user:', dbUser.id);
+      routine = await aiService.generateRoutine({
+        userProfile,
+        preferences: requestData.preferences,
+        plan: authUser.plan
+      });
 
-    if (!result.success) {
-      throw new HTTPException(400, { message: result.error || 'Error generando rutina' });
+      // Cache the routine
+      await cacheService.setRoutine(cacheKey, routine, 86400); // 24 hours
     }
+
+    // Save routine to database
+    const savedRoutine = await sql`
+      INSERT INTO routines (
+        user_id, name, description, routine_data, is_ai_generated, 
+        ai_prompt, difficulty_level, estimated_duration, target_muscle_groups, 
+        equipment_needed
+      ) VALUES (
+        ${dbUser.id}, ${routine.name}, ${routine.description}, 
+        ${JSON.stringify(routine)}, true, ${JSON.stringify(requestData)},
+        ${routine.difficulty}, ${routine.estimatedDuration}, ${routine.targetMuscleGroups},
+        ${routine.equipmentNeeded}
+      ) RETURNING *
+    `;
+
+    // Update rate limits and credits
+    await cacheService.incrementRateLimit(dbUser.id, 'routines');
+    const creditCost = CREDIT_COSTS.routine[authUser.plan];
+    if (!cacheHit) {
+      await cacheService.incrementUserCredits(dbUser.id, -creditCost);
+    }
+
+    // Log usage for cost tracking (simplified)
+    await logAIUsage(
+      sql, dbUser.id, 'generate_routine', 'gpt-3.5-turbo',
+      0, 0, 0, requestData, routine, cacheHit
+    );
 
     return c.json({
       success: true,
-      data: result.data,
-      cached: result.cached,
-      message: result.cached ? 'Rutina obtenida desde cache' : 'Rutina generada exitosamente',
+      data: {
+        routine: savedRoutine[0],
+        details: routine,
+        cacheHit,
+        creditsUsed: cacheHit ? 0 : creditCost
+      },
+      message: 'Rutina generada exitosamente'
     });
 
   } catch (error) {
@@ -91,282 +239,200 @@ ai.post('/generate-routine', async (c) => {
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error interno del servidor' });
+    throw new HTTPException(500, { message: 'Failed to generate routine' });
   }
 });
 
-// Analyze progress
-ai.post('/analyze-progress', async (c) => {
+// Get coaching advice based on workout performance
+ai.post('/coaching-advice', async (c) => {
   try {
-    const user = c.get('user');
-    if (!user) {
+    const authUser = c.get('user');
+    if (!authUser) {
       throw new HTTPException(401, { message: 'User not authenticated' });
     }
 
-    const { workoutHistory, timeframe } = await c.req.json();
+    const workoutData = await c.req.json();
+    
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const dbUser = await getUserByClerkId(sql, authUser.userId);
+    if (!dbUser) {
+      throw new HTTPException(404, { message: 'User profile not found' });
+    }
 
-    // TODO: Implement actual AI analysis
-    // For now, return mock analysis
-    const mockAnalysis = {
-      id: `analysis_${Date.now()}`,
-      timeframe: timeframe || 'last_30_days',
-      insights: [
-        {
-          type: 'strength_gain',
-          priority: 'high',
-          title: 'Excellent Strength Progress',
-          message: 'Your bench press has improved by 12% this month. You\'re responding well to your current program.',
-          actionable: true,
-          recommendation: 'Continue with current rep ranges but consider adding pause reps for additional challenge.',
-        },
-        {
-          type: 'plateau_warning',
-          priority: 'medium',
-          title: 'Potential Squat Plateau',
-          message: 'Your squat progress has slowed in the last 2 weeks. This could indicate fatigue or need for deload.',
-          actionable: true,
-          recommendation: 'Consider a deload week with 60-70% of normal intensity.',
-        },
-        {
-          type: 'volume_optimization',
-          priority: 'low',
-          title: 'Volume Distribution',
-          message: 'Your chest volume is optimal, but back volume could be increased by 15% for better balance.',
-          actionable: true,
-          recommendation: 'Add one extra set to your pulling exercises.',
-        },
-      ],
-      metrics: {
-        overallProgress: 85, // percentage
-        strengthTrend: 'increasing',
-        volumeTrend: 'stable',
-        consistencyScore: 92,
-        recoveryIndicator: 'good',
-      },
-      nextSteps: [
-        'Continue current progression scheme',
-        'Focus on form quality over load increases',
-        'Consider adding mobility work',
-      ],
-      generatedAt: new Date().toISOString(),
-    };
+    // Initialize services
+    const aiService = new AIService(c.env.OPENAI_API_KEY);
+    const cacheService = new CacheService({
+      redisUrl: c.env.REDIS_URL,
+      redisToken: c.env.REDIS_TOKEN
+    });
+
+    // Check usage limits
+    const usageCheck = await checkUsageLimits(cacheService, dbUser.id, authUser.plan, 'coaching');
+    if (!usageCheck.allowed) {
+      throw new HTTPException(429, { message: usageCheck.reason });
+    }
+
+    // Generate coaching advice
+    const advice = await aiService.generateCoachingAdvice(workoutData, authUser.plan);
+
+    // Update rate limits and credits
+    await cacheService.incrementRateLimit(dbUser.id, 'coaching');
+    const creditCost = CREDIT_COSTS.coaching[authUser.plan];
+    await cacheService.incrementUserCredits(dbUser.id, -creditCost);
+
+    // Log usage
+    await logAIUsage(
+      sql, dbUser.id, 'coaching_advice', 'gpt-3.5-turbo',
+      0, 0, 0, workoutData, { advice }, false
+    );
 
     return c.json({
       success: true,
-      data: mockAnalysis,
-      message: 'Progress analysis completed',
+      data: {
+        advice,
+        creditsUsed: creditCost
+      }
     });
 
   } catch (error) {
-    console.error('Analyze progress error:', error);
+    console.error('Coaching advice error:', error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to analyze progress' });
+    throw new HTTPException(500, { message: 'Failed to generate coaching advice' });
   }
 });
 
-// Obtener consejo sobre ejercicio específico
-ai.post('/exercise-advice', async (c) => {
-  try {
-    const user = c.get('user');
-    if (!user) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
-    }
-
-    const { exerciseName, question, userLevel } = await c.req.json();
-
-    if (!exerciseName || !question) {
-      throw new HTTPException(400, { message: 'exerciseName y question son requeridos' });
-    }
-
-    const aiManager = new AIResourceManager(c.env.CACHE);
-
-    // Verificar créditos
-    const creditCheck = await aiManager.checkAndConsume(user.id, {
-      type: 'exercise_advice',
-      complexity: 'simple',
-    });
-
-    if (!creditCheck.allowed) {
-      throw new HTTPException(429, { message: creditCheck.error });
-    }
-
-    // Verificar cache
-    const cacheKey = aiManager.generateExerciseCacheKey(exerciseName, question);
-    const cachedAdvice = await aiManager.getCachedResponse(cacheKey);
-
-    if (cachedAdvice) {
-      return c.json({
-        success: true,
-        data: cachedAdvice,
-        cached: true,
-        remaining: creditCheck.remaining,
-      });
-    }
-
-    // Generar consejo con IA
-    const advice = await generateExerciseAdvice(exerciseName, question, userLevel, c.env.OPENAI_API_KEY);
-
-    // Guardar en cache
-    if (advice) {
-      await aiManager.cacheResponse(cacheKey, advice, 86400); // 24 horas
-    }
-
-    return c.json({
-      success: true,
-      data: advice,
-      cached: false,
-      remaining: creditCheck.remaining,
-    });
-
-  } catch (error) {
-    console.error('Exercise advice error:', error);
-    if (error instanceof HTTPException) {
-      throw error;
-    }
-    throw new HTTPException(500, { message: 'Error interno del servidor' });
-  }
-});
-
-// Get quick coaching tip
-ai.post('/quick-tip', async (c) => {
-  try {
-    const user = c.get('user');
-    if (!user) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
-    }
-
-    const { context } = await c.req.json();
-
-    // TODO: Generate personalized tips based on user data
-    const motivationalTips = [
-      'Great job staying consistent! Your strength gains show your dedication is paying off.',
-      'Remember, progressive overload is key - small increases add up to big gains over time.',
-      'Your form is improving! Quality reps build both strength and confidence.',
-      'Recovery is just as important as training. Make sure you\'re getting enough sleep.',
-      'You\'re in the top 10% for consistency this month - keep up the momentum!',
-    ];
-
-    const randomTip = motivationalTips[Math.floor(Math.random() * motivationalTips.length)];
-
-    const quickTip = {
-      id: `tip_${Date.now()}`,
-      message: randomTip,
-      type: 'motivational',
-      context: context || 'general',
-      generatedAt: new Date().toISOString(),
-    };
-
-    return c.json({
-      success: true,
-      data: quickTip,
-    });
-
-  } catch (error) {
-    console.error('Quick tip error:', error);
-    if (error instanceof HTTPException) {
-      throw error;
-    }
-    throw new HTTPException(500, { message: 'Failed to generate quick tip' });
-  }
-});
-
-// Obtener estadísticas de uso de IA
+// Get user's AI usage stats
 ai.get('/usage-stats', async (c) => {
   try {
-    const user = c.get('user');
-    if (!user) {
+    const authUser = c.get('user');
+    if (!authUser) {
       throw new HTTPException(401, { message: 'User not authenticated' });
     }
+    
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const dbUser = await getUserByClerkId(sql, authUser.userId);
+    if (!dbUser) {
+      throw new HTTPException(404, { message: 'User profile not found' });
+    }
 
-    const aiManager = new AIResourceManager(c.env.CACHE);
-    const stats = await aiManager.getUsageStats(user.id);
+    const cacheService = new CacheService({
+      redisUrl: c.env.REDIS_URL,
+      redisToken: c.env.REDIS_TOKEN
+    });
+
+    // Get current usage
+    const routineLimit = await cacheService.getRateLimit(dbUser.id, 'routines');
+    const coachingLimit = await cacheService.getRateLimit(dbUser.id, 'coaching');
+    const credits = await cacheService.getUserCredits(dbUser.id);
+
+    // Get usage history from database
+    const usageHistory = await sql`
+      SELECT 
+        endpoint,
+        COUNT(*) as usage_count,
+        SUM(cost_usd) as total_cost,
+        SUM(CASE WHEN cache_hit THEN 1 ELSE 0 END) as cache_hits
+      FROM ai_usage_tracking
+      WHERE user_id = ${dbUser.id}
+        AND created_at >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY endpoint
+    `;
+
+    const planLimits = RATE_LIMITS[authUser.plan];
 
     return c.json({
       success: true,
-      data: stats,
+      data: {
+        plan: authUser.plan,
+        credits,
+        dailyUsage: {
+          routines: {
+            used: routineLimit.count,
+            limit: planLimits.routines,
+            resetAt: new Date(routineLimit.resetAt).toISOString()
+          },
+          coaching: {
+            used: coachingLimit.count,
+            limit: planLimits.coaching,
+            resetAt: new Date(coachingLimit.resetAt).toISOString()
+          }
+        },
+        monthlyHistory: usageHistory,
+        creditCosts: CREDIT_COSTS
+      }
     });
 
   } catch (error) {
     console.error('Usage stats error:', error);
-    throw new HTTPException(500, { message: 'Error obteniendo estadísticas' });
+    throw new HTTPException(500, { message: 'Failed to get usage stats' });
   }
 });
 
-// Helper: Generar consejo de ejercicio
-async function generateExerciseAdvice(
-  exerciseName: string,
-  question: string,
-  userLevel: string = 'intermediate',
-  apiKey: string
-): Promise<any> {
-  const systemPrompt = `Eres un entrenador personal experto. Proporciona consejos técnicos precisos y seguros sobre ejercicios.
-
-INSTRUCCIONES:
-1. Responde en español
-2. Sé conciso pero informativo
-3. Enfócate en técnica correcta y seguridad
-4. Adapta el consejo al nivel del usuario
-5. Responde en formato JSON
-
-FORMATO:
-{
-  "advice": "consejo_principal",
-  "keyPoints": ["punto_1", "punto_2", "punto_3"],
-  "commonMistakes": ["error_1", "error_2"],
-  "safety": "recomendación_de_seguridad"
-}`;
-
-  const userPrompt = `Ejercicio: ${exerciseName}
-Pregunta: ${question}
-Nivel del usuario: ${userLevel}
-
-Proporciona un consejo detallado y útil.`;
-
+// Get user's plan info and usage limits
+ai.get('/plan-info', async (c) => {
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 800,
-        response_format: { type: 'json_object' },
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+    const authUser = c.get('user');
+    if (!authUser) {
+      throw new HTTPException(401, { message: 'User not authenticated' });
     }
 
-    const data = await response.json();
-    const content = (data as any).choices?.[0]?.message?.content;
-    
-    return content ? JSON.parse(content) : null;
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const dbUser = await getUserByClerkId(sql, authUser.userId);
+    if (!dbUser) {
+      throw new HTTPException(404, { message: 'User profile not found' });
+    }
+
+    const cacheService = new CacheService({
+      redisUrl: c.env.REDIS_URL,
+      redisToken: c.env.REDIS_TOKEN
+    });
+
+    // Get current usage
+    const routineLimit = await cacheService.getRateLimit(dbUser.id, 'routines');
+    const coachingLimit = await cacheService.getRateLimit(dbUser.id, 'coaching');
+    const credits = await cacheService.getUserCredits(dbUser.id);
+
+    // Get plan information
+    const planInfo = getUserPlanInfo(authUser.plan);
+    const upgradeOptions = getUpgradeOptions(authUser.plan);
+
+    // Check current usage against limits
+    const routineUsage = checkDailyUsage(authUser.plan, 'routines', routineLimit.count);
+    const coachingUsage = checkDailyUsage(authUser.plan, 'coaching', coachingLimit.count);
+
+    return c.json({
+      success: true,
+      data: {
+        currentPlan: authUser.plan,
+        planFeatures: planInfo,
+        usage: {
+          routines: {
+            used: routineLimit.count,
+            limit: routineUsage.limit,
+            remaining: routineUsage.remaining,
+            resetAt: new Date(routineLimit.resetAt).toISOString()
+          },
+          coaching: {
+            used: coachingLimit.count,
+            limit: coachingUsage.limit,
+            remaining: coachingUsage.remaining,
+            resetAt: new Date(coachingLimit.resetAt).toISOString()
+          }
+        },
+        credits: {
+          available: credits,
+          monthly: planInfo.monthlyCredits
+        },
+        upgradeOptions: upgradeOptions.available.length > 0 ? upgradeOptions : null
+      }
+    });
 
   } catch (error) {
-    console.error('Error generating exercise advice:', error);
-    
-    // Fallback con consejo genérico
-    return {
-      advice: `Para ${exerciseName}, enfócate en mantener una técnica correcta y progresión gradual.`,
-      keyPoints: [
-        'Realiza un calentamiento adecuado',
-        'Mantén la forma correcta en todo momento',
-        'Progresa gradualmente en peso/repeticiones'
-      ],
-      commonMistakes: ['Usar demasiado peso', 'Realizar el movimiento muy rápido'],
-      safety: 'Si sientes dolor, detente inmediatamente y consulta un profesional.',
-    };
+    console.error('Get plan info error:', error);
+    throw new HTTPException(500, { message: 'Failed to get plan information' });
   }
-}
+});
 
 export default ai;

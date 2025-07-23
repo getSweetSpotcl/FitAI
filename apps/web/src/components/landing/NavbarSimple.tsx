@@ -1,12 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser, SignOutButton } from '@clerk/nextjs';
 import { Button } from '../ui';
-import { Menu, X, Download, ExternalLink } from 'lucide-react';
+import { Menu, X, Download, ExternalLink, LogOut, User } from 'lucide-react';
 
 export const NavbarSimple: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const router = useRouter();
+  const { isSignedIn, user } = useUser();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -31,6 +35,20 @@ export const NavbarSimple: React.FC = () => {
         element.scrollIntoView({ behavior: 'smooth' });
       }
     }
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleLogin = () => {
+    router.push('/sign-in');
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleSignOut = () => {
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleDashboard = () => {
+    router.push('/dashboard');
     setIsMobileMenuOpen(false);
   };
 
@@ -80,15 +98,32 @@ export const NavbarSimple: React.FC = () => {
 
             {/* Desktop CTA */}
             <div className="hidden md:flex items-center gap-4">
-              <Button variant="ghost" size="sm">
-                Iniciar Sesión
-              </Button>
-              <Button 
-                size="sm" 
-                leftIcon={<Download className="w-4 h-4" />}
-              >
-                Descargar
-              </Button>
+              {isSignedIn ? (
+                <>
+                  <Button variant="ghost" size="sm" onClick={handleDashboard}>
+                    <User className="w-4 h-4 mr-2" />
+                    {user?.firstName || 'Dashboard'}
+                  </Button>
+                  <SignOutButton>
+                    <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Salir
+                    </Button>
+                  </SignOutButton>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" size="sm" onClick={handleLogin}>
+                    Iniciar Sesión
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    leftIcon={<Download className="w-4 h-4" />}
+                  >
+                    Descargar
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Mobile menu button */}
@@ -126,16 +161,33 @@ export const NavbarSimple: React.FC = () => {
                 </button>
               ))}
               <div className="pt-4 border-t border-gray-700/50 space-y-3">
-                <Button variant="ghost" size="sm" className="w-full">
-                  Iniciar Sesión
-                </Button>
-                <Button 
-                  size="sm" 
-                  className="w-full"
-                  leftIcon={<Download className="w-4 h-4" />}
-                >
-                  Descargar App
-                </Button>
+                {isSignedIn ? (
+                  <>
+                    <Button variant="ghost" size="sm" className="w-full" onClick={handleDashboard}>
+                      <User className="w-4 h-4 mr-2" />
+                      {user?.firstName || 'Dashboard'}
+                    </Button>
+                    <SignOutButton>
+                      <Button variant="ghost" size="sm" className="w-full" onClick={handleSignOut}>
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Cerrar Sesión
+                      </Button>
+                    </SignOutButton>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" size="sm" className="w-full" onClick={handleLogin}>
+                      Iniciar Sesión
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      className="w-full"
+                      leftIcon={<Download className="w-4 h-4" />}
+                    >
+                      Descargar App
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

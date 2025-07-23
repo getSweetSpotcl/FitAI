@@ -1,10 +1,26 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { authMiddleware } from '../middleware/auth';
+import { createDatabaseClient } from '../db/database';
+import { SocialService } from '../lib/social-service';
+import { z } from 'zod';
+import type {
+  UpdateSocialProfileRequest,
+  CreateSharedRoutineRequest,
+  CreateWorkoutPostRequest,
+  CreateChallengeRequest,
+  CreateCommunityGroupRequest,
+  CreateGroupPostRequest,
+  SocialFeedQuery,
+  SharedRoutinesQuery,
+  ChallengesQuery
+} from '../types/social';
 
 type Bindings = {
   DATABASE_URL: string;
   CACHE: KVNamespace;
+  CLERK_SECRET_KEY: string;
+  OPENAI_API_KEY: string;
 };
 
 type Variables = {
@@ -12,200 +28,144 @@ type Variables = {
     id: string;
     email: string;
     plan: 'free' | 'premium' | 'pro';
+    userId?: string;
+    firstName?: string;
+    lastName?: string;
+    role?: 'user' | 'admin';
   };
 };
 
-interface UserProfile {
-  id: string;
-  displayName: string;
-  avatar?: string;
-  bio?: string;
-  level: string;
-  totalWorkouts: number;
-  streakDays: number;
-  achievements: Achievement[];
-  stats: UserStats;
-  privacy: PrivacySettings;
-  joinedAt: Date;
-}
-
-interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  category: 'strength' | 'consistency' | 'milestone' | 'special';
-  earnedAt: Date;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-}
-
-interface UserStats {
-  totalVolume: number;
-  averageRPE: number;
-  strongestLifts: Array<{ exercise: string; weight: number }>;
-  favoriteMuscleGroups: string[];
-  totalTrainingTime: number; // minutes
-}
-
-interface PrivacySettings {
-  profilePublic: boolean;
-  showWorkouts: boolean;
-  showStats: boolean;
-  showAchievements: boolean;
-  allowFollowers: boolean;
-}
-
-interface SharedRoutine {
-  id: string;
-  creatorId: string;
-  creator: { displayName: string; avatar?: string };
-  name: string;
-  description: string;
-  exercises: SharedExercise[];
-  difficulty: number;
-  estimatedDuration: number;
-  tags: string[];
-  category: string;
-  public: boolean;
-  likes: number;
-  saves: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface SharedExercise {
-  name: string;
-  sets: number;
-  reps: string;
-  rest: number;
-  notes?: string;
-  muscleGroups: string[];
-}
-
-interface SocialConnection {
-  id: string;
-  followerId: string;
-  followingId: string;
-  createdAt: Date;
-  status: 'pending' | 'accepted' | 'blocked';
-}
-
-interface Challenge {
-  id: string;
-  name: string;
-  description: string;
-  type: 'individual' | 'team' | 'global';
-  category: 'strength' | 'endurance' | 'consistency' | 'volume';
-  startDate: Date;
-  endDate: Date;
-  rules: ChallengeRule[];
-  rewards: ChallengeReward[];
-  participants: number;
-  status: 'upcoming' | 'active' | 'completed';
-}
-
-interface ChallengeRule {
-  parameter: string;
-  condition: string;
-  target: number;
-  unit: string;
-}
-
-interface ChallengeReward {
-  position: 'winner' | 'top3' | 'top10' | 'participant';
-  type: 'achievement' | 'premium_time' | 'discount';
-  value: string;
-}
-
 const social = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+// Validation schemas
+const UpdateProfileSchema = z.object({
+  displayName: z.string().min(1).max(50).optional(),
+  bio: z.string().max(200).optional(),
+  avatarUrl: z.string().url().optional(),
+  fitnessLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).optional(),
+  yearsTraining: z.number().min(0).max(50).optional(),
+  preferredWorkoutTypes: z.array(z.string()).optional(),
+  privacy: z.object({
+    profilePublic: z.boolean().optional(),
+    showWorkouts: z.boolean().optional(),
+    showStats: z.boolean().optional(),
+    showAchievements: z.boolean().optional(),
+    allowFollowers: z.boolean().optional(),
+    allowChallenges: z.boolean().optional()
+  }).optional()
+});
+
+const CreateRoutineSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  difficulty: z.number().min(1).max(10),
+  estimatedDuration: z.number().min(5).max(300).optional(),
+  category: z.string().optional(),
+  tags: z.array(z.string()).default([]),
+  exercises: z.array(z.object({
+    name: z.string(),
+    sets: z.number().min(1),
+    reps: z.string(),
+    weight: z.number().optional(),
+    rest: z.number().min(0),
+    notes: z.string().optional(),
+    muscleGroups: z.array(z.string()).default([]),
+    equipment: z.string().optional(),
+    instructions: z.string().optional()
+  })),
+  isPublic: z.boolean().default(true),
+  allowModifications: z.boolean().default(true)
+});
+
+const CreatePostSchema = z.object({
+  caption: z.string().max(500).optional(),
+  workoutSessionId: z.string().optional(),
+  workoutData: z.any().optional(),
+  mediaUrls: z.array(z.string().url()).optional().default([]),
+  postType: z.enum(['workout', 'achievement', 'progress', 'milestone']),
+  visibility: z.enum(['public', 'followers', 'private']).default('public')
+});
+
+const CreateChallengeSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().min(1).max(2000),
+  challengeType: z.enum(['individual', 'team', 'global']),
+  category: z.enum(['strength', 'endurance', 'consistency', 'volume', 'special']),
+  startDate: z.string().transform(str => new Date(str)),
+  endDate: z.string().transform(str => new Date(str)),
+  registrationEndDate: z.string().transform(str => new Date(str)).optional(),
+  rules: z.array(z.object({
+    parameter: z.string(),
+    condition: z.enum(['min', 'max', 'exact']),
+    target: z.number(),
+    unit: z.string(),
+    description: z.string().optional()
+  })).default([]),
+  entryRequirements: z.record(z.any()).optional().default({}),
+  rewards: z.array(z.object({
+    position: z.enum(['winner', 'top3', 'top10', 'top50', 'participant']),
+    type: z.enum(['achievement', 'premium_time', 'discount', 'badge', 'points']),
+    value: z.string(),
+    description: z.string().optional()
+  })).default([]),
+  maxParticipants: z.number().min(1).optional(),
+  teamSize: z.number().min(1).optional(),
+  isPublic: z.boolean().default(true)
+});
+
+const CreateGroupSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(1000).optional(),
+  groupType: z.enum(['public', 'private', 'premium_only']).default('public'),
+  category: z.string().max(50).optional(),
+  requiresApproval: z.boolean().default(false),
+  allowPosts: z.boolean().default(true),
+  allowMedia: z.boolean().default(true),
+  rules: z.string().optional()
+});
+
+const CreateGroupPostSchema = z.object({
+  title: z.string().max(200).optional(),
+  content: z.string().min(1).max(5000),
+  postType: z.enum(['discussion', 'question', 'announcement', 'workout']).default('discussion'),
+  mediaUrls: z.array(z.string().url()).optional().default([]),
+  parentPostId: z.string().optional()
+});
 
 // Apply auth middleware to all routes
 social.use('*', authMiddleware);
 
+// ==================== PROFILE MANAGEMENT ====================
+
 /**
+ * GET /api/v1/social/profile/:userId?
  * Get user's social profile
  */
 social.get('/profile/:userId?', async (c) => {
   try {
-    const currentUser = c.get('user');
-    const targetUserId = c.req.param('userId') || currentUser?.id;
-    
-    if (!currentUser || !targetUserId) {
+    const user = c.get('user');
+    if (!user) {
       throw new HTTPException(401, { message: 'Usuario no autenticado' });
     }
 
-    // Check if profile exists and privacy settings
-    const isOwnProfile = targetUserId === currentUser.id;
-    
-    // Mock profile data - in production would query database
-    const mockProfile: UserProfile = {
-      id: targetUserId,
-      displayName: isOwnProfile ? 'Tu Perfil' : 'Carlos Entrenador',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + targetUserId,
-      bio: isOwnProfile ? 
-        'Apasionado del fitness, siempre buscando mejorar 💪' : 
-        'Entrenador personal certificado | 5+ años de experiencia',
-      level: 'Intermedio',
-      totalWorkouts: isOwnProfile ? 127 : 285,
-      streakDays: isOwnProfile ? 15 : 42,
-      achievements: [
-        {
-          id: 'first_workout',
-          name: 'Primer Paso',
-          description: 'Completaste tu primer entrenamiento',
-          icon: '🎯',
-          category: 'milestone',
-          earnedAt: new Date('2024-12-15'),
-          rarity: 'common'
-        },
-        {
-          id: 'consistency_week',
-          name: 'Semana Perfecta',
-          description: 'Entrenaste 7 días consecutivos',
-          icon: '🔥',
-          category: 'consistency',
-          earnedAt: new Date('2025-01-10'),
-          rarity: 'rare'
-        },
-        {
-          id: 'strength_milestone',
-          name: 'Fuerza Épica',
-          description: 'Levantaste 100kg en press de banca',
-          icon: '⚡',
-          category: 'strength',
-          earnedAt: new Date('2025-01-18'),
-          rarity: 'epic'
-        }
-      ],
-      stats: {
-        totalVolume: 125000,
-        averageRPE: 7.3,
-        strongestLifts: [
-          { exercise: 'Press de Banca', weight: 102.5 },
-          { exercise: 'Sentadilla', weight: 140 },
-          { exercise: 'Peso Muerto', weight: 160 }
-        ],
-        favoriteMuscleGroups: ['chest', 'legs', 'back'],
-        totalTrainingTime: 3420 // minutes
-      },
-      privacy: {
-        profilePublic: true,
-        showWorkouts: isOwnProfile || true,
-        showStats: isOwnProfile || true,
-        showAchievements: true,
-        allowFollowers: true
-      },
-      joinedAt: new Date('2024-11-01')
-    };
+    const targetUserId = c.req.param('userId') || user.id;
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
 
-    // Apply privacy filters if not own profile
-    if (!isOwnProfile && !mockProfile.privacy.profilePublic) {
+    const profile = await socialService.getUserSocialProfile(targetUserId);
+    if (!profile) {
+      throw new HTTPException(404, { message: 'Perfil no encontrado' });
+    }
+
+    // Check privacy if viewing another user's profile
+    const isOwnProfile = targetUserId === user.id;
+    if (!isOwnProfile && !profile.profilePublic) {
       throw new HTTPException(403, { message: 'Perfil privado' });
     }
 
     return c.json({
       success: true,
-      data: mockProfile,
+      data: profile,
       isOwnProfile
     });
 
@@ -219,6 +179,7 @@ social.get('/profile/:userId?', async (c) => {
 });
 
 /**
+ * PUT /api/v1/social/profile
  * Update user's social profile
  */
 social.put('/profile', async (c) => {
@@ -228,26 +189,15 @@ social.put('/profile', async (c) => {
       throw new HTTPException(401, { message: 'Usuario no autenticado' });
     }
 
-    const profileData = await c.req.json() as {
-      displayName?: string;
-      bio?: string;
-      privacy?: Partial<PrivacySettings>;
-    };
+    const profileData = UpdateProfileSchema.parse(await c.req.json());
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
 
-    // Validate input
-    if (profileData.displayName && profileData.displayName.length > 50) {
-      throw new HTTPException(400, { message: 'Nombre muy largo (máximo 50 caracteres)' });
-    }
-
-    if (profileData.bio && profileData.bio.length > 200) {
-      throw new HTTPException(400, { message: 'Biografía muy larga (máximo 200 caracteres)' });
-    }
-
-    // In production, update database
-    console.log('Updating profile for user:', user.id, profileData);
+    const updatedProfile = await socialService.updateSocialProfile(user.id, profileData);
 
     return c.json({
       success: true,
+      data: updatedProfile,
       message: 'Perfil actualizado exitosamente'
     });
 
@@ -256,11 +206,172 @@ social.put('/profile', async (c) => {
     if (error instanceof HTTPException) {
       throw error;
     }
+    if (error instanceof z.ZodError) {
+      throw new HTTPException(400, { message: 'Datos inválidos' });
+    }
     throw new HTTPException(500, { message: 'Error actualizando perfil' });
   }
 });
 
+// ==================== SOCIAL CONNECTIONS ====================
+
 /**
+ * POST /api/v1/social/follow/:userId
+ * Follow a user
+ */
+social.post('/follow/:userId', async (c) => {
+  try {
+    const user = c.get('user');
+    const targetUserId = c.req.param('userId');
+    
+    if (!user || !targetUserId) {
+      throw new HTTPException(400, { message: 'Parámetros inválidos' });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const connection = await socialService.followUser(user.id, targetUserId);
+
+    return c.json({
+      success: true,
+      data: connection,
+      message: 'Usuario seguido exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Follow user error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error siguiendo usuario' });
+  }
+});
+
+/**
+ * DELETE /api/v1/social/follow/:userId
+ * Unfollow a user
+ */
+social.delete('/follow/:userId', async (c) => {
+  try {
+    const user = c.get('user');
+    const targetUserId = c.req.param('userId');
+    
+    if (!user || !targetUserId) {
+      throw new HTTPException(400, { message: 'Parámetros inválidos' });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    await socialService.unfollowUser(user.id, targetUserId);
+
+    return c.json({
+      success: true,
+      message: 'Usuario no seguido'
+    });
+
+  } catch (error) {
+    console.error('Unfollow user error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error dejando de seguir usuario' });
+  }
+});
+
+/**
+ * GET /api/v1/social/followers/:userId?
+ * Get user's followers
+ */
+social.get('/followers/:userId?', async (c) => {
+  try {
+    const user = c.get('user');
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
+
+    const targetUserId = c.req.param('userId') || user.id;
+    const page = parseInt(c.req.query('page') || '1');
+    const limit = parseInt(c.req.query('limit') || '20');
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const result = await socialService.getUserFollowers(targetUserId, page, limit);
+
+    return c.json({
+      success: true,
+      data: {
+        followers: result.followers,
+        pagination: {
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit),
+          hasNext: page * limit < result.total,
+          hasPrev: page > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get followers error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error obteniendo seguidores' });
+  }
+});
+
+/**
+ * GET /api/v1/social/following/:userId?
+ * Get users that a user is following
+ */
+social.get('/following/:userId?', async (c) => {
+  try {
+    const user = c.get('user');
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
+
+    const targetUserId = c.req.param('userId') || user.id;
+    const page = parseInt(c.req.query('page') || '1');
+    const limit = parseInt(c.req.query('limit') || '20');
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const result = await socialService.getUserFollowing(targetUserId, page, limit);
+
+    return c.json({
+      success: true,
+      data: {
+        following: result.following,
+        pagination: {
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit),
+          hasNext: page * limit < result.total,
+          hasPrev: page > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get following error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error obteniendo seguidos' });
+  }
+});
+
+// ==================== SHARED ROUTINES ====================
+
+/**
+ * GET /api/v1/social/routines
  * Get shared routines feed
  */
 social.get('/routines', async (c) => {
@@ -270,111 +381,32 @@ social.get('/routines', async (c) => {
       throw new HTTPException(401, { message: 'Usuario no autenticado' });
     }
 
-    const { category, difficulty, page = '1', limit = '10' } = c.req.query();
+    const query: SharedRoutinesQuery = {
+      page: parseInt(c.req.query('page') || '1'),
+      limit: parseInt(c.req.query('limit') || '10'),
+      category: c.req.query('category'),
+      difficulty: c.req.query('difficulty') ? parseInt(c.req.query('difficulty')!) : undefined,
+      tags: c.req.query('tags')?.split(','),
+      sortBy: c.req.query('sortBy') as any || 'recent',
+      userId: c.req.query('userId')
+    };
 
-    // Mock shared routines data
-    const mockRoutines: SharedRoutine[] = [
-      {
-        id: 'routine_1',
-        creatorId: 'user_creator_1',
-        creator: {
-          displayName: 'Ana Fitness',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ana'
-        },
-        name: 'Push Pull Legs Completo',
-        description: 'Rutina completa de 6 días enfocada en hipertrofia. Ideal para nivel intermedio-avanzado.',
-        exercises: [
-          {
-            name: 'Press de Banca',
-            sets: 4,
-            reps: '8-10',
-            rest: 120,
-            notes: 'Controla la bajada, explosivo en la subida',
-            muscleGroups: ['chest', 'shoulders', 'triceps']
-          },
-          {
-            name: 'Press Inclinado con Mancuernas',
-            sets: 3,
-            reps: '10-12',
-            rest: 90,
-            muscleGroups: ['chest', 'shoulders']
-          }
-        ],
-        difficulty: 7,
-        estimatedDuration: 75,
-        tags: ['hipertrofia', 'intermedio', 'gym'],
-        category: 'strength',
-        public: true,
-        likes: 142,
-        saves: 89,
-        createdAt: new Date('2025-01-15'),
-        updatedAt: new Date('2025-01-15')
-      },
-      {
-        id: 'routine_2',
-        creatorId: 'user_creator_2',
-        creator: {
-          displayName: 'Miguel Coach',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=miguel'
-        },
-        name: 'Fuerza Powerlifting Básico',
-        description: 'Rutina de iniciación al powerlifting. Enfoque en los tres levantamientos principales.',
-        exercises: [
-          {
-            name: 'Sentadilla',
-            sets: 5,
-            reps: '5',
-            rest: 180,
-            notes: 'Profundidad completa, mantén la espalda recta',
-            muscleGroups: ['legs', 'glutes']
-          },
-          {
-            name: 'Press de Banca',
-            sets: 5,
-            reps: '5',
-            rest: 180,
-            muscleGroups: ['chest', 'shoulders', 'triceps']
-          }
-        ],
-        difficulty: 8,
-        estimatedDuration: 90,
-        tags: ['fuerza', 'powerlifting', 'avanzado'],
-        category: 'strength',
-        public: true,
-        likes: 89,
-        saves: 156,
-        createdAt: new Date('2025-01-12'),
-        updatedAt: new Date('2025-01-12')
-      }
-    ];
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
 
-    // Apply filters
-    let filteredRoutines = mockRoutines;
-    
-    if (category) {
-      filteredRoutines = filteredRoutines.filter(r => r.category === category);
-    }
-    
-    if (difficulty) {
-      const difficultyNum = parseInt(difficulty);
-      filteredRoutines = filteredRoutines.filter(r => r.difficulty >= difficultyNum - 1 && r.difficulty <= difficultyNum + 1);
-    }
-
-    // Pagination
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const startIndex = (pageNum - 1) * limitNum;
-    const paginatedRoutines = filteredRoutines.slice(startIndex, startIndex + limitNum);
+    const result = await socialService.getSharedRoutines(query);
 
     return c.json({
       success: true,
       data: {
-        routines: paginatedRoutines,
+        routines: result.routines,
         pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total: filteredRoutines.length,
-          totalPages: Math.ceil(filteredRoutines.length / limitNum)
+          page: query.page!,
+          limit: query.limit!,
+          total: result.total,
+          totalPages: Math.ceil(result.total / query.limit!),
+          hasNext: query.page! * query.limit! < result.total,
+          hasPrev: query.page! > 1
         }
       }
     });
@@ -389,6 +421,7 @@ social.get('/routines', async (c) => {
 });
 
 /**
+ * POST /api/v1/social/routines
  * Share a routine
  */
 social.post('/routines', async (c) => {
@@ -398,46 +431,11 @@ social.post('/routines', async (c) => {
       throw new HTTPException(401, { message: 'Usuario no autenticado' });
     }
 
-    const routineData = await c.req.json() as {
-      name: string;
-      description: string;
-      exercises: SharedExercise[];
-      difficulty: number;
-      estimatedDuration: number;
-      tags: string[];
-      category: string;
-      public: boolean;
-    };
+    const routineData = CreateRoutineSchema.parse(await c.req.json()) as CreateSharedRoutineRequest;
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
 
-    // Validation
-    if (!routineData.name || routineData.name.length > 100) {
-      throw new HTTPException(400, { message: 'Nombre de rutina inválido (máximo 100 caracteres)' });
-    }
-
-    if (!routineData.exercises || routineData.exercises.length === 0) {
-      throw new HTTPException(400, { message: 'La rutina debe tener al menos un ejercicio' });
-    }
-
-    if (routineData.difficulty < 1 || routineData.difficulty > 10) {
-      throw new HTTPException(400, { message: 'Dificultad debe estar entre 1 y 10' });
-    }
-
-    // Create shared routine
-    const sharedRoutine: SharedRoutine = {
-      id: `routine_${Date.now()}`,
-      creatorId: user.id,
-      creator: {
-        displayName: 'Tu Usuario', // Would get from profile
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`
-      },
-      ...routineData,
-      likes: 0,
-      saves: 0,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    console.log('Creating shared routine:', sharedRoutine);
+    const sharedRoutine = await socialService.shareRoutine(user.id, routineData);
 
     return c.json({
       success: true,
@@ -450,11 +448,15 @@ social.post('/routines', async (c) => {
     if (error instanceof HTTPException) {
       throw error;
     }
+    if (error instanceof z.ZodError) {
+      throw new HTTPException(400, { message: 'Datos de rutina inválidos' });
+    }
     throw new HTTPException(500, { message: 'Error compartiendo rutina' });
   }
 });
 
 /**
+ * POST /api/v1/social/routines/:routineId/like
  * Like/Unlike a routine
  */
 social.post('/routines/:routineId/like', async (c) => {
@@ -466,17 +468,15 @@ social.post('/routines/:routineId/like', async (c) => {
       throw new HTTPException(400, { message: 'Parámetros inválidos' });
     }
 
-    // In production, toggle like in database
-    const isLiked = Math.random() > 0.5; // Mock current like status
-    const newLikesCount = Math.floor(Math.random() * 200) + 50;
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const result = await socialService.toggleRoutineLike(user.id, routineId);
 
     return c.json({
       success: true,
-      data: {
-        liked: !isLiked,
-        likesCount: newLikesCount + (isLiked ? -1 : 1)
-      },
-      message: isLiked ? 'Like removido' : 'Rutina marcada como favorita'
+      data: result,
+      message: result.liked ? 'Rutina marcada como favorita' : 'Like removido'
     });
 
   } catch (error) {
@@ -488,8 +488,301 @@ social.post('/routines/:routineId/like', async (c) => {
   }
 });
 
+// ==================== WORKOUT POSTS ====================
+
 /**
- * Get user's achievements
+ * GET /api/v1/social/feed
+ * Get social feed
+ */
+social.get('/feed', async (c) => {
+  try {
+    const user = c.get('user');
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
+
+    const query: SocialFeedQuery = {
+      page: parseInt(c.req.query('page') || '1'),
+      limit: parseInt(c.req.query('limit') || '10'),
+      feedType: c.req.query('feedType') as any || 'all',
+      contentTypes: c.req.query('contentTypes')?.split(',')
+    };
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const result = await socialService.getSocialFeed(user.id, query);
+
+    return c.json({
+      success: true,
+      data: {
+        posts: result.posts,
+        pagination: {
+          page: query.page!,
+          limit: query.limit!,
+          total: result.total,
+          totalPages: Math.ceil(result.total / query.limit!),
+          hasNext: query.page! * query.limit! < result.total,
+          hasPrev: query.page! > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get feed error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error obteniendo feed social' });
+  }
+});
+
+/**
+ * POST /api/v1/social/posts
+ * Create a workout post
+ */
+social.post('/posts', async (c) => {
+  try {
+    const user = c.get('user');
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
+
+    const postData = CreatePostSchema.parse(await c.req.json()) as CreateWorkoutPostRequest;
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const post = await socialService.createWorkoutPost(user.id, postData);
+
+    return c.json({
+      success: true,
+      data: post,
+      message: 'Post creado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Create post error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    if (error instanceof z.ZodError) {
+      throw new HTTPException(400, { message: 'Datos de post inválidos' });
+    }
+    throw new HTTPException(500, { message: 'Error creando post' });
+  }
+});
+
+// ==================== CHALLENGES ====================
+
+/**
+ * GET /api/v1/social/challenges
+ * Get challenges
+ */
+social.get('/challenges', async (c) => {
+  try {
+    const user = c.get('user');
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
+
+    const query: ChallengesQuery = {
+      page: parseInt(c.req.query('page') || '1'),
+      limit: parseInt(c.req.query('limit') || '10'),
+      status: c.req.query('status') as any,
+      category: c.req.query('category'),
+      challengeType: c.req.query('challengeType') as any,
+      participating: c.req.query('participating') === 'true'
+    };
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const result = await socialService.getChallenges(query);
+
+    return c.json({
+      success: true,
+      data: {
+        challenges: result.challenges,
+        pagination: {
+          page: query.page!,
+          limit: query.limit!,
+          total: result.total,
+          totalPages: Math.ceil(result.total / query.limit!),
+          hasNext: query.page! * query.limit! < result.total,
+          hasPrev: query.page! > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get challenges error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error obteniendo desafíos' });
+  }
+});
+
+/**
+ * POST /api/v1/social/challenges
+ * Create a challenge (Premium/Pro only)
+ */
+social.post('/challenges', async (c) => {
+  try {
+    const user = c.get('user');
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
+
+    // Check if user has premium/pro plan for creating challenges
+    if (user.plan === 'free') {
+      throw new HTTPException(402, { message: 'Plan Premium o Pro requerido para crear desafíos' });
+    }
+
+    const challengeData = CreateChallengeSchema.parse(await c.req.json()) as CreateChallengeRequest;
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const challenge = await socialService.createChallenge(user.id, challengeData);
+
+    return c.json({
+      success: true,
+      data: challenge,
+      message: 'Desafío creado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Create challenge error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    if (error instanceof z.ZodError) {
+      throw new HTTPException(400, { message: 'Datos de desafío inválidos' });
+    }
+    throw new HTTPException(500, { message: 'Error creando desafío' });
+  }
+});
+
+/**
+ * POST /api/v1/social/challenges/:challengeId/join
+ * Join a challenge
+ */
+social.post('/challenges/:challengeId/join', async (c) => {
+  try {
+    const user = c.get('user');
+    const challengeId = c.req.param('challengeId');
+    
+    if (!user || !challengeId) {
+      throw new HTTPException(400, { message: 'Parámetros inválidos' });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const participation = await socialService.joinChallenge(user.id, challengeId);
+
+    return c.json({
+      success: true,
+      data: participation,
+      message: '¡Te has unido al desafío exitosamente!'
+    });
+
+  } catch (error) {
+    console.error('Join challenge error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error uniéndose al desafío' });
+  }
+});
+
+// ==================== NOTIFICATIONS ====================
+
+/**
+ * GET /api/v1/social/notifications
+ * Get user notifications
+ */
+social.get('/notifications', async (c) => {
+  try {
+    const user = c.get('user');
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
+
+    const page = parseInt(c.req.query('page') || '1');
+    const limit = parseInt(c.req.query('limit') || '20');
+    const unreadOnly = c.req.query('unread') === 'true';
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const result = await socialService.getUserNotifications(user.id, page, limit, unreadOnly);
+
+    return c.json({
+      success: true,
+      data: {
+        notifications: result.notifications,
+        unreadCount: result.unreadCount,
+        pagination: {
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit),
+          hasNext: page * limit < result.total,
+          hasPrev: page > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error obteniendo notificaciones' });
+  }
+});
+
+/**
+ * PUT /api/v1/social/notifications/:notificationId/read
+ * Mark notification as read
+ */
+social.put('/notifications/:notificationId/read', async (c) => {
+  try {
+    const user = c.get('user');
+    const notificationId = c.req.param('notificationId');
+    
+    if (!user || !notificationId) {
+      throw new HTTPException(400, { message: 'Parámetros inválidos' });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+
+    await database`
+      UPDATE social_notifications
+      SET is_read = TRUE, read_at = NOW()
+      WHERE id = ${notificationId} AND user_id = ${user.id}
+    `;
+
+    return c.json({
+      success: true,
+      message: 'Notificación marcada como leída'
+    });
+
+  } catch (error) {
+    console.error('Mark notification read error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error marcando notificación como leída' });
+  }
+});
+
+// ==================== LEGACY ENDPOINTS (for backward compatibility) ====================
+
+/**
+ * GET /api/v1/social/achievements
+ * Get user achievements (legacy endpoint)
  */
 social.get('/achievements', async (c) => {
   try {
@@ -498,8 +791,8 @@ social.get('/achievements', async (c) => {
       throw new HTTPException(401, { message: 'Usuario no autenticado' });
     }
 
-    // Mock achievements data
-    const allAchievements = [
+    // Mock achievements data for backward compatibility
+    const mockAchievements = [
       {
         id: 'first_workout',
         name: 'Primer Paso',
@@ -529,34 +822,12 @@ social.get('/achievements', async (c) => {
         rarity: 'epic',
         earnedAt: null,
         earned: false,
-        progress: 85 // 85kg current
-      },
-      {
-        id: 'marathon_month',
-        name: 'Maratón Mensual',
-        description: 'Entrena 20 días en un mes',
-        icon: '🏃',
-        category: 'consistency',
-        rarity: 'rare',
-        earnedAt: null,
-        earned: false,
-        progress: 15 // 15/20 days
-      },
-      {
-        id: 'social_sharer',
-        name: 'Inspirador',
-        description: 'Comparte 10 rutinas exitosas',
-        icon: '📤',
-        category: 'special',
-        rarity: 'epic',
-        earnedAt: null,
-        earned: false,
-        progress: 3 // 3/10 routines
+        progress: 85
       }
     ];
 
-    const earnedAchievements = allAchievements.filter(a => a.earned);
-    const availableAchievements = allAchievements.filter(a => !a.earned);
+    const earnedAchievements = mockAchievements.filter(a => a.earned);
+    const availableAchievements = mockAchievements.filter(a => !a.earned);
 
     return c.json({
       success: true,
@@ -565,7 +836,7 @@ social.get('/achievements', async (c) => {
         available: availableAchievements,
         stats: {
           totalEarned: earnedAchievements.length,
-          totalAvailable: allAchievements.length,
+          totalAvailable: mockAchievements.length,
           rareCount: earnedAchievements.filter(a => a.rarity === 'rare').length,
           epicCount: earnedAchievements.filter(a => a.rarity === 'epic').length,
           legendaryCount: earnedAchievements.filter(a => a.rarity === 'legendary').length
@@ -583,170 +854,7 @@ social.get('/achievements', async (c) => {
 });
 
 /**
- * Get active challenges
- */
-social.get('/challenges', async (c) => {
-  try {
-    const user = c.get('user');
-    if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
-    }
-
-    // Mock challenges data
-    const challenges: Challenge[] = [
-      {
-        id: 'january_consistency',
-        name: 'Enero Constante',
-        description: 'Entrena al menos 20 días durante enero. ¡Empieza el año fuerte!',
-        type: 'global',
-        category: 'consistency',
-        startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-01-31'),
-        rules: [
-          {
-            parameter: 'workout_days',
-            condition: 'min',
-            target: 20,
-            unit: 'days'
-          }
-        ],
-        rewards: [
-          {
-            position: 'participant',
-            type: 'achievement',
-            value: 'Logro "Año Nuevo, Yo Nuevo"'
-          },
-          {
-            position: 'top10',
-            type: 'premium_time',
-            value: '1 mes FitAI Premium gratis'
-          }
-        ],
-        participants: 1247,
-        status: 'active'
-      },
-      {
-        id: 'bench_press_masters',
-        name: 'Maestros del Press',
-        description: 'Compite por el mejor press de banca relativo a tu peso corporal',
-        type: 'individual',
-        category: 'strength',
-        startDate: new Date('2025-01-15'),
-        endDate: new Date('2025-02-15'),
-        rules: [
-          {
-            parameter: 'bench_press_ratio',
-            condition: 'max',
-            target: 1.5,
-            unit: 'x body weight'
-          }
-        ],
-        rewards: [
-          {
-            position: 'winner',
-            type: 'achievement',
-            value: 'Logro "Rey del Press" + 3 meses Premium'
-          },
-          {
-            position: 'top3',
-            type: 'premium_time',
-            value: '1 mes FitAI Premium gratis'
-          }
-        ],
-        participants: 89,
-        status: 'active'
-      },
-      {
-        id: 'team_volume',
-        name: 'Volumen en Equipo',
-        description: 'Únete a un equipo y compitan por el mayor volumen total de entrenamiento',
-        type: 'team',
-        category: 'volume',
-        startDate: new Date('2025-02-01'),
-        endDate: new Date('2025-02-28'),
-        rules: [
-          {
-            parameter: 'team_total_volume',
-            condition: 'max',
-            target: 100000,
-            unit: 'kg'
-          }
-        ],
-        rewards: [
-          {
-            position: 'winner',
-            type: 'achievement',
-            value: 'Logro "Equipo Invencible" para todos'
-          }
-        ],
-        participants: 0,
-        status: 'upcoming'
-      }
-    ];
-
-    const activechallenges = challenges.filter(c => c.status === 'active');
-    const upcomingChallenges = challenges.filter(c => c.status === 'upcoming');
-
-    return c.json({
-      success: true,
-      data: {
-        active: activechallenges,
-        upcoming: upcomingChallenges,
-        myParticipations: [
-          {
-            challengeId: 'january_consistency',
-            progress: 15, // 15/20 days
-            rank: 234,
-            onTrack: true
-          }
-        ]
-      }
-    });
-
-  } catch (error) {
-    console.error('Get challenges error:', error);
-    if (error instanceof HTTPException) {
-      throw error;
-    }
-    throw new HTTPException(500, { message: 'Error obteniendo desafíos' });
-  }
-});
-
-/**
- * Join a challenge
- */
-social.post('/challenges/:challengeId/join', async (c) => {
-  try {
-    const user = c.get('user');
-    const challengeId = c.req.param('challengeId');
-    
-    if (!user || !challengeId) {
-      throw new HTTPException(400, { message: 'Parámetros inválidos' });
-    }
-
-    // In production, add user to challenge
-    console.log(`User ${user.id} joining challenge ${challengeId}`);
-
-    return c.json({
-      success: true,
-      message: '¡Te has unido al desafío exitosamente!',
-      data: {
-        challengeId,
-        joinedAt: new Date(),
-        initialProgress: 0
-      }
-    });
-
-  } catch (error) {
-    console.error('Join challenge error:', error);
-    if (error instanceof HTTPException) {
-      throw error;
-    }
-    throw new HTTPException(500, { message: 'Error uniéndose al desafío' });
-  }
-});
-
-/**
+ * GET /api/v1/social/leaderboards
  * Get leaderboards
  */
 social.get('/leaderboards', async (c) => {
@@ -769,7 +877,7 @@ social.get('/leaderboards', async (c) => {
         },
         value: 25680,
         unit: 'kg',
-        change: '+2' // positions
+        change: '+2'
       },
       {
         rank: 2,
@@ -782,18 +890,6 @@ social.get('/leaderboards', async (c) => {
         unit: 'kg',
         change: '-1'
       },
-      {
-        rank: 3,
-        user: {
-          id: 'user_3',
-          displayName: 'María Strong',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=maria'
-        },
-        value: 23840,
-        unit: 'kg',
-        change: '+5'
-      },
-      // ... more entries
       {
         rank: 47,
         user: {
@@ -827,6 +923,210 @@ social.get('/leaderboards', async (c) => {
       throw error;
     }
     throw new HTTPException(500, { message: 'Error obteniendo clasificaciones' });
+  }
+});
+
+// ==================== COMMUNITY GROUPS ====================
+
+/**
+ * GET /api/v1/social/groups
+ * Get community groups
+ */
+social.get('/groups', async (c) => {
+  try {
+    const user = c.get('user');
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
+
+    const page = parseInt(c.req.query('page') || '1');
+    const limit = parseInt(c.req.query('limit') || '10');
+    const category = c.req.query('category');
+    const groupType = c.req.query('groupType');
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const result = await socialService.getCommunityGroups(page, limit, category, groupType);
+
+    return c.json({
+      success: true,
+      data: {
+        groups: result.groups,
+        pagination: {
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit),
+          hasNext: page * limit < result.total,
+          hasPrev: page > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get community groups error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error obteniendo grupos de la comunidad' });
+  }
+});
+
+/**
+ * POST /api/v1/social/groups
+ * Create a community group
+ */
+social.post('/groups', async (c) => {
+  try {
+    const user = c.get('user');
+    if (!user) {
+      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+    }
+
+    // Check for premium plan for creating groups
+    if (user.plan === 'free') {
+      throw new HTTPException(402, { message: 'Plan Premium requerido para crear grupos' });
+    }
+
+    const groupData = CreateGroupSchema.parse(await c.req.json()) as CreateCommunityGroupRequest;
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const group = await socialService.createCommunityGroup(user.id, groupData);
+
+    return c.json({
+      success: true,
+      data: group,
+      message: 'Grupo creado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Create community group error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    if (error instanceof z.ZodError) {
+      throw new HTTPException(400, { message: 'Datos de grupo inválidos' });
+    }
+    throw new HTTPException(500, { message: 'Error creando grupo' });
+  }
+});
+
+/**
+ * POST /api/v1/social/groups/:groupId/join
+ * Join a community group
+ */
+social.post('/groups/:groupId/join', async (c) => {
+  try {
+    const user = c.get('user');
+    const groupId = c.req.param('groupId');
+    
+    if (!user || !groupId) {
+      throw new HTTPException(400, { message: 'Parámetros inválidos' });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const membership = await socialService.joinCommunityGroup(user.id, groupId);
+
+    return c.json({
+      success: true,
+      data: membership,
+      message: membership.status === 'pending' 
+        ? 'Solicitud de unión enviada' 
+        : '¡Te has unido al grupo exitosamente!'
+    });
+
+  } catch (error) {
+    console.error('Join community group error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error uniéndose al grupo' });
+  }
+});
+
+/**
+ * GET /api/v1/social/groups/:groupId/posts
+ * Get posts from a community group
+ */
+social.get('/groups/:groupId/posts', async (c) => {
+  try {
+    const user = c.get('user');
+    const groupId = c.req.param('groupId');
+    
+    if (!user || !groupId) {
+      throw new HTTPException(400, { message: 'Parámetros inválidos' });
+    }
+
+    const page = parseInt(c.req.query('page') || '1');
+    const limit = parseInt(c.req.query('limit') || '10');
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const result = await socialService.getGroupPosts(groupId, page, limit);
+
+    return c.json({
+      success: true,
+      data: {
+        posts: result.posts,
+        pagination: {
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit),
+          hasNext: page * limit < result.total,
+          hasPrev: page > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get group posts error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: 'Error obteniendo posts del grupo' });
+  }
+});
+
+/**
+ * POST /api/v1/social/groups/:groupId/posts
+ * Create a post in a community group
+ */
+social.post('/groups/:groupId/posts', async (c) => {
+  try {
+    const user = c.get('user');
+    const groupId = c.req.param('groupId');
+    
+    if (!user || !groupId) {
+      throw new HTTPException(400, { message: 'Parámetros inválidos' });
+    }
+
+    const postData = CreateGroupPostSchema.parse(await c.req.json()) as CreateGroupPostRequest;
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const socialService = new SocialService(database);
+
+    const post = await socialService.createGroupPost(user.id, groupId, postData);
+
+    return c.json({
+      success: true,
+      data: post,
+      message: 'Post creado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Create group post error:', error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    if (error instanceof z.ZodError) {
+      throw new HTTPException(400, { message: 'Datos de post inválidos' });
+    }
+    throw new HTTPException(500, { message: 'Error creando post en el grupo' });
   }
 });
 

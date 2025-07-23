@@ -1,15 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Cloudflare Pages compatibility - use export for static generation
-  output: 'export',
+  // For dashboard with Clerk authentication, we need SSR
+  // output: 'export', // Commented out - not compatible with Clerk
   
-  // Disable image optimization (not supported on Cloudflare)
+  // Image optimization settings
   images: {
     unoptimized: true,
   },
   
-  // Disable trailing slash for better compatibility
+  // Trailing slash setting
   trailingSlash: false,
   
   // Environment variables
