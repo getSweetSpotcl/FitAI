@@ -105,12 +105,12 @@ jobs:
       - name: Build API
         run: npm run build --workspace=apps/api
 
-      - name: Deploy Web to Production
+      - name: Deploy Web to Production (Static)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: apps/web
-          command: deploy --env production
+          command: pages deploy public --project-name fitai-web-production
           wranglerVersion: '4.25.1'
 
       - name: Deploy API to Production
