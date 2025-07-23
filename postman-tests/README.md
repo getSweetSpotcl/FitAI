@@ -4,9 +4,19 @@ Esta colección incluye todos los endpoints de la API de FitAI con ejemplos comp
 
 ## 📋 Contenido
 
-- **FitAI_API_Collection.json**: Colección completa con todos los endpoints
-- **Local_Environment.json**: Entorno para desarrollo local
-- **Production_Environment.json**: Entorno para producción
+### **Colecciones**
+- **FitAI_API_Collection.json**: Colección original con endpoints básicos
+- **FitAI_Complete_Collection_v2.json**: ⭐ **RECOMENDADA** - Suite completa con:
+  - Tests automatizados y validaciones
+  - Scripts de configuración automática
+  - Ejemplos completos para todos los endpoints
+  - Flujo de quick start para pruebas rápidas
+
+### **Entornos**
+- **Local_Environment.json**: Desarrollo local (localhost:8787)
+- **Workers_Dev_Environment.json**: ⭐ **USAR ESTE** - Endpoint temporal mientras propaga DNS
+- **Staging_Environment.json**: Entorno de staging (api-staging.getfitia.com)
+- **Production_Environment.json**: Entorno de producción (api.getfitia.com)
 - **README.md**: Este archivo con instrucciones de uso
 
 ## 🚀 Importar en Postman

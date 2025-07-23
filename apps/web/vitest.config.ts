@@ -11,7 +11,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     css: true,
     coverage: {
-      provider: 'c8',
+      provider: 'v8',
       reporter: ['text', 'json', 'html'],
       exclude: [
         'node_modules/',

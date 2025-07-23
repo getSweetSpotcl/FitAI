@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "echo 'Building for Cloudflare Workers'",
-    "build:worker": "echo 'Worker build handled by Wrangler'",
+    "build": "next build",
+    "build:cf": "npx @cloudflare/next-on-pages",
     "start": "next start",
     "deploy": "wrangler deploy",
     "deploy:staging": "wrangler deploy --env staging",

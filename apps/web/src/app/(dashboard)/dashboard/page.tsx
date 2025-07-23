@@ -1,5 +1,8 @@
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+
+// Force dynamic rendering for Clerk server functions
+export const dynamic = 'force-dynamic';
 import DashboardClient from './DashboardClient';
 
 export default async function DashboardPage() {

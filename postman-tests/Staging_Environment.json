@@ -1,48 +1,48 @@
 {
-  "id": "fitai-production-env",
-  "name": "FitAI - Production",
+  "id": "fitai-staging-env",
+  "name": "FitAI - Staging",
   "values": [
     {
       "key": "base_url",
-      "value": "https://api.getfitia.com",
+      "value": "https://api-staging.getfitia.com",
       "enabled": true,
       "type": "default",
-      "description": "Update with your actual production domain"
+      "description": "Staging API endpoint"
     },
     {
       "key": "auth_token",
       "value": "",
       "enabled": true,
       "type": "secret",
-      "description": "Production JWT token from Clerk authentication - Update this after login"
+      "description": "Staging JWT token from Clerk authentication - Update this after login"
     },
     {
       "key": "user_id",
       "value": "",
       "enabled": true,
       "type": "default",
-      "description": "Production user ID for testing"
+      "description": "Staging user ID for testing"
     },
     {
       "key": "exercise_id",
       "value": "",
       "enabled": true,
       "type": "default",
-      "description": "Production exercise ID for testing"
+      "description": "Staging exercise ID for testing"
     },
     {
       "key": "routine_id",
       "value": "",
       "enabled": true,
       "type": "default",
-      "description": "Production routine ID for testing"
+      "description": "Staging routine ID for testing"
     },
     {
       "key": "session_id",
       "value": "",
       "enabled": true,
       "type": "default",
-      "description": "Production workout session ID for testing"
+      "description": "Staging workout session ID for testing"
     },
     {
       "key": "api_version",
@@ -52,7 +52,7 @@
     },
     {
       "key": "environment",
-      "value": "production",
+      "value": "staging",
       "enabled": true,
       "type": "default"
     }

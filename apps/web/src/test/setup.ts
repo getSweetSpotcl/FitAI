@@ -20,7 +20,11 @@ beforeAll(() => {
   });
 
   // Mock IntersectionObserver
-  global.IntersectionObserver = class IntersectionObserver {
+  global.IntersectionObserver = class MockIntersectionObserver {
+    root = null;
+    rootMargin = '';
+    thresholds = [];
+    
     constructor() {}
     observe() {
       return null;
@@ -31,7 +35,10 @@ beforeAll(() => {
     unobserve() {
       return null;
     }
-  };
+    takeRecords() {
+      return [];
+    }
+  } as any;
 
   // Mock ResizeObserver
   global.ResizeObserver = class ResizeObserver {

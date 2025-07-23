@@ -1,5 +1,8 @@
 import { SignUp } from '@clerk/nextjs';
 
+// Force dynamic rendering for Clerk components
+export const dynamic = 'force-dynamic';
+
 export default function SignUpPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">

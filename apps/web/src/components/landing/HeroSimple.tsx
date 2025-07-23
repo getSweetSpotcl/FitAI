@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button } from '../ui';
@@ -9,6 +9,11 @@ import { Download, Play } from 'lucide-react';
 export const HeroSimple: React.FC = () => {
   const router = useRouter();
   const { isSignedIn } = useUser();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleGetStarted = () => {
     if (isSignedIn) {
@@ -85,7 +90,7 @@ export const HeroSimple: React.FC = () => {
                 className="animate-pulse-glow"
                 onClick={handleGetStarted}
               >
-                {isSignedIn ? 'Ir a Dashboard' : 'Descargar Gratis'}
+                {!mounted ? 'Descargar Gratis' : (isSignedIn ? 'Ir a Dashboard' : 'Descargar Gratis')}
               </Button>
               <Button 
                 variant="secondary" 

@@ -1,48 +1,48 @@
 {
-  "id": "fitai-production-env",
-  "name": "FitAI - Production",
+  "id": "fitai-workers-dev-env",
+  "name": "FitAI - Workers Dev (Temporal)",
   "values": [
     {
       "key": "base_url",
-      "value": "https://api.getfitia.com",
+      "value": "https://fitai-api.sweetspot-627.workers.dev",
       "enabled": true,
       "type": "default",
-      "description": "Update with your actual production domain"
+      "description": "Temporal Workers endpoint while DNS propagates"
     },
     {
       "key": "auth_token",
       "value": "",
       "enabled": true,
       "type": "secret",
-      "description": "Production JWT token from Clerk authentication - Update this after login"
+      "description": "JWT token from Clerk authentication - Update this after login"
     },
     {
       "key": "user_id",
-      "value": "",
+      "value": "user_test_123",
       "enabled": true,
       "type": "default",
-      "description": "Production user ID for testing"
+      "description": "Test user ID"
     },
     {
       "key": "exercise_id",
-      "value": "",
+      "value": "ex_bench_press",
       "enabled": true,
       "type": "default",
-      "description": "Production exercise ID for testing"
+      "description": "Sample exercise ID for testing"
     },
     {
       "key": "routine_id",
-      "value": "",
+      "value": "routine_sample_123",
       "enabled": true,
       "type": "default",
-      "description": "Production routine ID for testing"
+      "description": "Sample routine ID for testing"
     },
     {
       "key": "session_id",
-      "value": "",
+      "value": "session_active_123",
       "enabled": true,
       "type": "default",
-      "description": "Production workout session ID for testing"
+      "description": "Active workout session ID for testing"
     },
     {
       "key": "api_version",
@@ -52,7 +52,7 @@
     },
     {
       "key": "environment",
-      "value": "production",
+      "value": "workers-dev",
       "enabled": true,
       "type": "default"
     }

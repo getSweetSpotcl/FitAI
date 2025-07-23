@@ -1,5 +1,8 @@
 import { auth, currentUser } from '@clerk/nextjs/server';
 
+// Force dynamic rendering for Clerk server functions
+export const dynamic = 'force-dynamic';
+
 export default async function DebugAuthPage() {
   const { userId, sessionClaims } = await auth();
   const user = await currentUser();

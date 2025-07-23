@@ -9,10 +9,13 @@ import { Menu, X, Download, ExternalLink, LogOut, User } from 'lucide-react';
 export const NavbarSimple: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const { isSignedIn, user } = useUser();
 
   useEffect(() => {
+    setMounted(true);
+    
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
     };
@@ -98,7 +101,19 @@ export const NavbarSimple: React.FC = () => {
 
             {/* Desktop CTA */}
             <div className="hidden md:flex items-center gap-4">
-              {isSignedIn ? (
+              {!mounted ? (
+                <>
+                  <Button variant="ghost" size="sm" onClick={handleLogin}>
+                    Iniciar Sesión
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    leftIcon={<Download className="w-4 h-4" />}
+                  >
+                    Descargar
+                  </Button>
+                </>
+              ) : isSignedIn ? (
                 <>
                   <Button variant="ghost" size="sm" onClick={handleDashboard}>
                     <User className="w-4 h-4 mr-2" />
@@ -161,7 +176,20 @@ export const NavbarSimple: React.FC = () => {
                 </button>
               ))}
               <div className="pt-4 border-t border-gray-700/50 space-y-3">
-                {isSignedIn ? (
+                {!mounted ? (
+                  <>
+                    <Button variant="ghost" size="sm" className="w-full" onClick={handleLogin}>
+                      Iniciar Sesión
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      className="w-full"
+                      leftIcon={<Download className="w-4 h-4" />}
+                    >
+                      Descargar App
+                    </Button>
+                  </>
+                ) : isSignedIn ? (
                   <>
                     <Button variant="ghost" size="sm" className="w-full" onClick={handleDashboard}>
                       <User className="w-4 h-4 mr-2" />

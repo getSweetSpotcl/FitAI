@@ -15,7 +15,7 @@ export default async function DashboardLayoutSecure({
   }
 
   // Obtener usuario completo con private metadata (más seguro)
-  const user = await clerkClient.users.getUser(userId);
+  const user = await (await clerkClient()).users.getUser(userId);
   
   // Verificar rol en private metadata
   const userRole = (user.privateMetadata as any)?.role || 'user';

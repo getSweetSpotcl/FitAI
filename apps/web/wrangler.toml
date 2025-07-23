@@ -1,7 +1,11 @@
 name = "fitai-web"
-main = "worker/index.ts"
 compatibility_date = "2024-12-30"
 compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+# Build command for @cloudflare/next-on-pages
+[build]
+command = "npx @cloudflare/next-on-pages"
 
 [vars]
 ENVIRONMENT = "development"
@@ -19,6 +23,7 @@ routes = [
 [env.production.vars]
 ENVIRONMENT = "production"
 NEXT_PUBLIC_API_URL = "https://api.getfitia.com"
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_live_your_clerk_key_here"
 
 [env.staging]
 name = "fitai-web-staging"
@@ -29,13 +34,4 @@ routes = [
 [env.staging.vars]
 ENVIRONMENT = "staging"
 NEXT_PUBLIC_API_URL = "https://api-staging.getfitia.com"
-
-# Static content configuration for Cloudflare Workers Sites
-[site]
-bucket = "./public"
-
-# KV namespace for static content
-[[kv_namespaces]]
-binding = "__STATIC_CONTENT"
-id = "web-static-content-dev"
-preview_id = "web-static-content-dev"
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_development_key"

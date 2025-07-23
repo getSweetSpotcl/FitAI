@@ -1,5 +1,8 @@
 import Link from 'next/link';
 
+// Force dynamic rendering to avoid SSG issues
+export const dynamic = 'force-dynamic';
+
 export default function UnauthorizedPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
