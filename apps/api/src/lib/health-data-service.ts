@@ -1,18 +1,15 @@
-import { DatabaseClient } from '../db/database';
-import {
-  HealthMetric,
-  HRVData,
-  SleepData,
-  HealthWorkout,
-  HealthSyncStatus,
-  RecoveryRecommendation,
-  HealthMetricType,
+import type { DatabaseClient } from "../db/database";
+import type {
   HealthDataType,
-  SyncStatus,
-  TrainingReadiness,
+  HealthMetric,
+  HealthMetricsQuery,
+  HealthWorkout,
+  HRVData,
   RecoveryAnalysis,
-  HealthMetricsQuery
-} from '../types/health';
+  RecoveryRecommendation,
+  SleepData,
+  SyncStatus,
+} from "../types/health";
 
 export class HealthDataService {
   constructor(private sql: DatabaseClient) {}
@@ -20,11 +17,14 @@ export class HealthDataService {
   /**
    * Save health metrics to database
    */
-  async saveHealthMetrics(userId: string, metrics: Omit<HealthMetric, 'id' | 'userId' | 'syncedAt' | 'createdAt'>[]): Promise<number> {
+  async saveHealthMetrics(
+    userId: string,
+    metrics: Omit<HealthMetric, "id" | "userId" | "syncedAt" | "createdAt">[]
+  ): Promise<number> {
     if (metrics.length === 0) return 0;
 
     let insertedCount = 0;
-    
+
     for (const metric of metrics) {
       try {
         await this.sql`
@@ -38,7 +38,7 @@ export class HealthDataService {
         `;
         insertedCount++;
       } catch (error) {
-        console.error('Error saving health metric:', error);
+        console.error("Error saving health metric:", error);
       }
     }
 
@@ -48,11 +48,14 @@ export class HealthDataService {
   /**
    * Save HRV data to database
    */
-  async saveHRVData(userId: string, hrvData: Omit<HRVData, 'id' | 'userId' | 'syncedAt' | 'createdAt'>[]): Promise<number> {
+  async saveHRVData(
+    userId: string,
+    hrvData: Omit<HRVData, "id" | "userId" | "syncedAt" | "createdAt">[]
+  ): Promise<number> {
     if (hrvData.length === 0) return 0;
 
     let insertedCount = 0;
-    
+
     for (const hrv of hrvData) {
       try {
         await this.sql`
@@ -71,7 +74,7 @@ export class HealthDataService {
         `;
         insertedCount++;
       } catch (error) {
-        console.error('Error saving HRV data:', error);
+        console.error("Error saving HRV data:", error);
       }
     }
 
@@ -81,11 +84,14 @@ export class HealthDataService {
   /**
    * Save sleep data to database
    */
-  async saveSleepData(userId: string, sleepData: Omit<SleepData, 'id' | 'userId' | 'syncedAt' | 'createdAt'>[]): Promise<number> {
+  async saveSleepData(
+    userId: string,
+    sleepData: Omit<SleepData, "id" | "userId" | "syncedAt" | "createdAt">[]
+  ): Promise<number> {
     if (sleepData.length === 0) return 0;
 
     let insertedCount = 0;
-    
+
     for (const sleep of sleepData) {
       try {
         await this.sql`
@@ -114,7 +120,7 @@ export class HealthDataService {
         `;
         insertedCount++;
       } catch (error) {
-        console.error('Error saving sleep data:', error);
+        console.error("Error saving sleep data:", error);
       }
     }
 
@@ -124,11 +130,14 @@ export class HealthDataService {
   /**
    * Save health workouts to database
    */
-  async saveHealthWorkouts(userId: string, workouts: Omit<HealthWorkout, 'id' | 'userId' | 'syncedAt' | 'createdAt'>[]): Promise<number> {
+  async saveHealthWorkouts(
+    userId: string,
+    workouts: Omit<HealthWorkout, "id" | "userId" | "syncedAt" | "createdAt">[]
+  ): Promise<number> {
     if (workouts.length === 0) return 0;
 
     let insertedCount = 0;
-    
+
     for (const workout of workouts) {
       try {
         await this.sql`
@@ -157,7 +166,7 @@ export class HealthDataService {
         `;
         insertedCount++;
       } catch (error) {
-        console.error('Error saving health workout:', error);
+        console.error("Error saving health workout:", error);
       }
     }
 
@@ -192,25 +201,28 @@ export class HealthDataService {
   /**
    * Get health metrics with optional filtering
    */
-  async getHealthMetrics(userId: string, queryParams: HealthMetricsQuery): Promise<HealthMetric[]> {
+  async getHealthMetrics(
+    userId: string,
+    queryParams: HealthMetricsQuery
+  ): Promise<HealthMetric[]> {
     const { metricTypes, startDate, endDate, limit = 1000 } = queryParams;
-    
+
     let whereClause = `user_id = '${userId}'`;
-    
+
     if (metricTypes && metricTypes.length > 0) {
-      const typesStr = metricTypes.map(t => `'${t}'`).join(',');
+      const typesStr = metricTypes.map((t) => `'${t}'`).join(",");
       whereClause += ` AND metric_type IN (${typesStr})`;
     }
-    
+
     if (startDate) {
       whereClause += ` AND recorded_at >= '${startDate.toISOString()}'`;
     }
-    
+
     if (endDate) {
       whereClause += ` AND recorded_at <= '${endDate.toISOString()}'`;
     }
 
-    let sqlQuery = `
+    const sqlQuery = `
       SELECT * FROM health_metrics 
       WHERE ${whereClause}
       ORDER BY recorded_at DESC
@@ -218,7 +230,7 @@ export class HealthDataService {
     `;
 
     const result = await this.sql.unsafe(sqlQuery);
-    return ((result as unknown) as any[]).map(this.mapHealthMetric.bind(this));
+    return (result as unknown as any[]).map(this.mapHealthMetric.bind(this));
   }
 
   /**
@@ -238,7 +250,11 @@ export class HealthDataService {
   /**
    * Get sleep data for date range
    */
-  async getSleepData(userId: string, startDate: Date, endDate: Date): Promise<SleepData[]> {
+  async getSleepData(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<SleepData[]> {
     const result = await this.sql`
       SELECT * FROM health_sleep_data
       WHERE user_id = ${userId}
@@ -253,7 +269,11 @@ export class HealthDataService {
   /**
    * Get health workouts for date range
    */
-  async getHealthWorkouts(userId: string, startDate: Date, endDate: Date): Promise<HealthWorkout[]> {
+  async getHealthWorkouts(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<HealthWorkout[]> {
     const result = await this.sql`
       SELECT * FROM health_workouts
       WHERE user_id = ${userId}
@@ -271,7 +291,7 @@ export class HealthDataService {
   async calculateRecoveryScore(userId: string): Promise<RecoveryAnalysis> {
     // Get recent HRV data (last 7 days)
     const hrvData = await this.getLatestHRVData(userId, 7);
-    
+
     // Get recent sleep data (last 7 days)
     const endDate = new Date();
     const startDate = new Date();
@@ -280,61 +300,67 @@ export class HealthDataService {
 
     // Basic recovery calculation algorithm
     let recoveryScore = 50; // Base score
-    const factors: RecoveryAnalysis['factorsInfluencing'] = {
-      sleep: 'neutral',
-      hrv: 'neutral',
-      workloadBalance: 'neutral',
-      consistency: 'neutral'
+    const factors: RecoveryAnalysis["factorsInfluencing"] = {
+      sleep: "neutral",
+      hrv: "neutral",
+      workloadBalance: "neutral",
+      consistency: "neutral",
     };
 
     // HRV analysis
     if (hrvData.length > 0) {
-      const avgRecoveryScore = hrvData.reduce((sum, hrv) => sum + hrv.recoveryScore, 0) / hrvData.length;
+      const avgRecoveryScore =
+        hrvData.reduce((sum, hrv) => sum + hrv.recoveryScore, 0) /
+        hrvData.length;
       recoveryScore += (avgRecoveryScore - 50) * 0.4; // 40% weight
-      
-      if (avgRecoveryScore > 70) factors.hrv = 'positive';
-      else if (avgRecoveryScore < 40) factors.hrv = 'negative';
+
+      if (avgRecoveryScore > 70) factors.hrv = "positive";
+      else if (avgRecoveryScore < 40) factors.hrv = "negative";
     }
 
     // Sleep analysis
     if (sleepData.length > 0) {
-      const avgSleepEfficiency = sleepData
-        .filter(s => s.sleepEfficiency)
-        .reduce((sum, s) => sum + (s.sleepEfficiency || 0), 0) / sleepData.length;
-      
+      const avgSleepEfficiency =
+        sleepData
+          .filter((s) => s.sleepEfficiency)
+          .reduce((sum, s) => sum + (s.sleepEfficiency || 0), 0) /
+        sleepData.length;
+
       if (avgSleepEfficiency > 85) {
         recoveryScore += 10;
-        factors.sleep = 'positive';
+        factors.sleep = "positive";
       } else if (avgSleepEfficiency < 70) {
         recoveryScore -= 15;
-        factors.sleep = 'negative';
+        factors.sleep = "negative";
       }
     }
 
     // Determine trend
-    let trend: 'improving' | 'stable' | 'declining' = 'stable';
+    let trend: "improving" | "stable" | "declining" = "stable";
     if (hrvData.length >= 3) {
-      const recent = hrvData.slice(0, 3).map(h => h.recoveryScore);
-      const older = hrvData.slice(-3).map(h => h.recoveryScore);
+      const recent = hrvData.slice(0, 3).map((h) => h.recoveryScore);
+      const older = hrvData.slice(-3).map((h) => h.recoveryScore);
       const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
       const olderAvg = older.reduce((a, b) => a + b, 0) / older.length;
-      
-      if (recentAvg > olderAvg + 5) trend = 'improving';
-      else if (recentAvg < olderAvg - 5) trend = 'declining';
+
+      if (recentAvg > olderAvg + 5) trend = "improving";
+      else if (recentAvg < olderAvg - 5) trend = "declining";
     }
 
     // Generate recommendations
     const recommendations: string[] = [];
-    if (factors.sleep === 'negative') {
-      recommendations.push('Prioriza dormir 7-9 horas por noche');
-      recommendations.push('Mantén horarios regulares de sueño');
+    if (factors.sleep === "negative") {
+      recommendations.push("Prioriza dormir 7-9 horas por noche");
+      recommendations.push("Mantén horarios regulares de sueño");
     }
-    if (factors.hrv === 'negative') {
-      recommendations.push('Considera reducir la intensidad del entrenamiento');
-      recommendations.push('Incluye más técnicas de relajación y breathing exercises');
+    if (factors.hrv === "negative") {
+      recommendations.push("Considera reducir la intensidad del entrenamiento");
+      recommendations.push(
+        "Incluye más técnicas de relajación y breathing exercises"
+      );
     }
     if (recoveryScore < 40) {
-      recommendations.push('Programa un día de descanso activo');
+      recommendations.push("Programa un día de descanso activo");
     }
 
     return {
@@ -342,14 +368,17 @@ export class HealthDataService {
       trend,
       factorsInfluencing: factors,
       recommendations,
-      nextRecommendationDate: new Date(Date.now() + 24 * 60 * 60 * 1000) // Tomorrow
+      nextRecommendationDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
     };
   }
 
   /**
    * Save recovery recommendation
    */
-  async saveRecoveryRecommendation(userId: string, recommendation: Omit<RecoveryRecommendation, 'id' | 'userId' | 'createdAt'>): Promise<void> {
+  async saveRecoveryRecommendation(
+    userId: string,
+    recommendation: Omit<RecoveryRecommendation, "id" | "userId" | "createdAt">
+  ): Promise<void> {
     await this.sql`
       INSERT INTO health_recovery_recommendations (
         user_id, recommendation_date, recovery_score, training_readiness,
@@ -382,7 +411,7 @@ export class HealthDataService {
       recordedAt: new Date(row.recorded_at),
       syncedAt: new Date(row.synced_at),
       metadata: row.metadata || {},
-      createdAt: new Date(row.created_at)
+      createdAt: new Date(row.created_at),
     };
   }
 
@@ -397,7 +426,7 @@ export class HealthDataService {
       recordedAt: new Date(row.recorded_at),
       syncedAt: new Date(row.synced_at),
       metadata: row.metadata || {},
-      createdAt: new Date(row.created_at)
+      createdAt: new Date(row.created_at),
     };
   }
 
@@ -412,12 +441,14 @@ export class HealthDataService {
       remSleepMinutes: row.rem_sleep_minutes,
       lightSleepMinutes: row.light_sleep_minutes,
       awakeMinutes: row.awake_minutes,
-      sleepEfficiency: row.sleep_efficiency ? parseFloat(row.sleep_efficiency) : undefined,
+      sleepEfficiency: row.sleep_efficiency
+        ? parseFloat(row.sleep_efficiency)
+        : undefined,
       sleepQualityScore: row.sleep_quality_score,
       recordedAt: new Date(row.recorded_at),
       syncedAt: new Date(row.synced_at),
       metadata: row.metadata || {},
-      createdAt: new Date(row.created_at)
+      createdAt: new Date(row.created_at),
     };
   }
 
@@ -437,7 +468,7 @@ export class HealthDataService {
       sourceApp: row.source_app,
       syncedAt: new Date(row.synced_at),
       metadata: row.metadata || {},
-      createdAt: new Date(row.created_at)
+      createdAt: new Date(row.created_at),
     };
   }
 }

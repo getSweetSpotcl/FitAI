@@ -1,6 +1,6 @@
-import { Hono } from 'hono';
-import { Webhook } from 'svix';
-import { MercadoPagoService } from '../lib/mercadopago';
+import { Hono } from "hono";
+import { Webhook } from "svix";
+import { MercadoPagoService } from "../lib/mercadopago";
 
 // Types for webhook events
 interface ClerkUser {
@@ -30,7 +30,7 @@ const app = new Hono<{ Bindings: WebhookBindings }>();
 
 // Database connection helper
 async function createDatabaseClient(databaseUrl: string) {
-  const { neon } = await import('@neondatabase/serverless');
+  const { neon } = await import("@neondatabase/serverless");
   return neon(databaseUrl);
 }
 
@@ -39,17 +39,25 @@ async function createDatabaseClient(databaseUrl: string) {
  */
 async function createUserFromClerk(clerkUser: ClerkUser, sql: any) {
   try {
-    const email = clerkUser.email_addresses[0]?.email_address || '';
-    const name = `${clerkUser.first_name || ''} ${clerkUser.last_name || ''}`.trim() || null;
-    const userRole = clerkUser.public_metadata?.role || clerkUser.private_metadata?.role || 'user';
-    const subscriptionPlan = clerkUser.public_metadata?.plan || clerkUser.private_metadata?.plan || 'free';
+    const email = clerkUser.email_addresses[0]?.email_address || "";
+    const name =
+      `${clerkUser.first_name || ""} ${clerkUser.last_name || ""}`.trim() ||
+      null;
+    const userRole =
+      clerkUser.public_metadata?.role ||
+      clerkUser.private_metadata?.role ||
+      "user";
+    const subscriptionPlan =
+      clerkUser.public_metadata?.plan ||
+      clerkUser.private_metadata?.plan ||
+      "free";
 
-    console.log('Creating user from Clerk:', { 
-      clerkId: clerkUser.id, 
-      email, 
-      name, 
+    console.log("Creating user from Clerk:", {
+      clerkId: clerkUser.id,
+      email,
+      name,
       role: userRole,
-      plan: subscriptionPlan 
+      plan: subscriptionPlan,
     });
 
     const result = await sql`
@@ -77,11 +85,10 @@ async function createUserFromClerk(clerkUser: ClerkUser, sql: any) {
       RETURNING id, clerk_user_id, email;
     `;
 
-    console.log('User created/updated successfully:', result[0]);
+    console.log("User created/updated successfully:", result[0]);
     return result[0];
-
   } catch (error) {
-    console.error('Error creating user from Clerk:', error);
+    console.error("Error creating user from Clerk:", error);
     throw error;
   }
 }
@@ -91,17 +98,25 @@ async function createUserFromClerk(clerkUser: ClerkUser, sql: any) {
  */
 async function updateUserFromClerk(clerkUser: ClerkUser, sql: any) {
   try {
-    const email = clerkUser.email_addresses[0]?.email_address || '';
-    const name = `${clerkUser.first_name || ''} ${clerkUser.last_name || ''}`.trim() || null;
-    const userRole = clerkUser.public_metadata?.role || clerkUser.private_metadata?.role || 'user';
-    const subscriptionPlan = clerkUser.public_metadata?.plan || clerkUser.private_metadata?.plan || 'free';
+    const email = clerkUser.email_addresses[0]?.email_address || "";
+    const name =
+      `${clerkUser.first_name || ""} ${clerkUser.last_name || ""}`.trim() ||
+      null;
+    const userRole =
+      clerkUser.public_metadata?.role ||
+      clerkUser.private_metadata?.role ||
+      "user";
+    const subscriptionPlan =
+      clerkUser.public_metadata?.plan ||
+      clerkUser.private_metadata?.plan ||
+      "free";
 
-    console.log('Updating user from Clerk:', { 
-      clerkId: clerkUser.id, 
-      email, 
-      name, 
+    console.log("Updating user from Clerk:", {
+      clerkId: clerkUser.id,
+      email,
+      name,
       role: userRole,
-      plan: subscriptionPlan 
+      plan: subscriptionPlan,
     });
 
     const result = await sql`
@@ -116,15 +131,14 @@ async function updateUserFromClerk(clerkUser: ClerkUser, sql: any) {
     `;
 
     if (result.length === 0) {
-      console.log('User not found, creating new record');
+      console.log("User not found, creating new record");
       return await createUserFromClerk(clerkUser, sql);
     }
 
-    console.log('User updated successfully:', result[0]);
+    console.log("User updated successfully:", result[0]);
     return result[0];
-
   } catch (error) {
-    console.error('Error updating user from Clerk:', error);
+    console.error("Error updating user from Clerk:", error);
     throw error;
   }
 }
@@ -134,7 +148,7 @@ async function updateUserFromClerk(clerkUser: ClerkUser, sql: any) {
  */
 async function softDeleteUser(clerkUserId: string, sql: any) {
   try {
-    console.log('Soft deleting user:', clerkUserId);
+    console.log("Soft deleting user:", clerkUserId);
 
     const result = await sql`
       UPDATE users SET
@@ -144,11 +158,10 @@ async function softDeleteUser(clerkUserId: string, sql: any) {
       RETURNING id, clerk_user_id, email;
     `;
 
-    console.log('User soft deleted:', result[0]);
+    console.log("User soft deleted:", result[0]);
     return result[0];
-
   } catch (error) {
-    console.error('Error soft deleting user:', error);
+    console.error("Error soft deleting user:", error);
     throw error;
   }
 }
@@ -157,41 +170,41 @@ async function softDeleteUser(clerkUserId: string, sql: any) {
  * Clerk webhook handler
  * Handles user.created, user.updated, and user.deleted events
  */
-app.post('/clerk', async (c) => {
+app.post("/clerk", async (c) => {
   try {
     // Get webhook signature and payload
-    const signature = c.req.header('svix-signature');
-    const timestamp = c.req.header('svix-timestamp');
-    const webhookId = c.req.header('svix-id');
-    
+    const signature = c.req.header("svix-signature");
+    const timestamp = c.req.header("svix-timestamp");
+    const webhookId = c.req.header("svix-id");
+
     if (!signature || !timestamp || !webhookId) {
-      console.error('Missing webhook headers');
-      return c.json({ error: 'Missing webhook headers' }, 400);
+      console.error("Missing webhook headers");
+      return c.json({ error: "Missing webhook headers" }, 400);
     }
 
     const payload = await c.req.text();
-    
+
     if (!payload) {
-      console.error('Empty webhook payload');
-      return c.json({ error: 'Empty payload' }, 400);
+      console.error("Empty webhook payload");
+      return c.json({ error: "Empty payload" }, 400);
     }
 
     // Verify webhook signature using Svix
     const webhook = new Webhook(c.env.CLERK_WEBHOOK_SECRET);
-    
+
     let webhookData: WebhookEvent;
     try {
       webhookData = webhook.verify(payload, {
-        'svix-id': webhookId,
-        'svix-timestamp': timestamp,
-        'svix-signature': signature,
+        "svix-id": webhookId,
+        "svix-timestamp": timestamp,
+        "svix-signature": signature,
       }) as WebhookEvent;
     } catch (verifyError) {
-      console.error('Webhook verification failed:', verifyError);
-      return c.json({ error: 'Webhook verification failed' }, 400);
+      console.error("Webhook verification failed:", verifyError);
+      return c.json({ error: "Webhook verification failed" }, 400);
     }
 
-    console.log('Webhook received:', webhookData.type, webhookData.data.id);
+    console.log("Webhook received:", webhookData.type, webhookData.data.id);
 
     // Connect to database
     const sql = await createDatabaseClient(c.env.DATABASE_URL);
@@ -199,38 +212,43 @@ app.post('/clerk', async (c) => {
     // Handle different webhook events
     let result;
     switch (webhookData.type) {
-      case 'user.created':
+      case "user.created":
         result = await createUserFromClerk(webhookData.data, sql);
         break;
 
-      case 'user.updated':
+      case "user.updated":
         result = await updateUserFromClerk(webhookData.data, sql);
         break;
 
-      case 'user.deleted':
+      case "user.deleted":
         result = await softDeleteUser(webhookData.data.id, sql);
         break;
 
       default:
-        console.log('Unhandled webhook type:', webhookData.type);
-        return c.json({ message: `Unhandled event type: ${webhookData.type}` }, 200);
+        console.log("Unhandled webhook type:", webhookData.type);
+        return c.json(
+          { message: `Unhandled event type: ${webhookData.type}` },
+          200
+        );
     }
 
-    console.log('Webhook processed successfully:', result);
+    console.log("Webhook processed successfully:", result);
 
-    return c.json({ 
-      success: true, 
+    return c.json({
+      success: true,
       event: webhookData.type,
       userId: webhookData.data.id,
-      result 
+      result,
     });
-
   } catch (error) {
-    console.error('Webhook processing error:', error);
-    return c.json({ 
-      error: 'Webhook processing failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, 500);
+    console.error("Webhook processing error:", error);
+    return c.json(
+      {
+        error: "Webhook processing failed",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
   }
 });
 
@@ -238,25 +256,33 @@ app.post('/clerk', async (c) => {
  * MercadoPago webhook handler
  * Handles payment notifications from MercadoPago
  */
-app.post('/mercadopago', async (c) => {
+app.post("/mercadopago", async (c) => {
   try {
     const webhookData = await c.req.json();
-    
-    console.log('MercadoPago Webhook received:', JSON.stringify(webhookData, null, 2));
 
-    const mercadoPagoService = new MercadoPagoService(c.env.MERCADOPAGO_ACCESS_TOKEN);
+    console.log(
+      "MercadoPago Webhook received:",
+      JSON.stringify(webhookData, null, 2)
+    );
+
+    const mercadoPagoService = new MercadoPagoService(
+      c.env.MERCADOPAGO_ACCESS_TOKEN
+    );
     const webhookResult = await mercadoPagoService.processWebhook(webhookData);
 
     if (!webhookResult.success) {
-      console.error('MercadoPago webhook processing failed:', webhookResult.error);
-      return c.json({ status: 'error', message: webhookResult.error }, 400);
+      console.error(
+        "MercadoPago webhook processing failed:",
+        webhookResult.error
+      );
+      return c.json({ status: "error", message: webhookResult.error }, 400);
     }
 
     if (webhookResult.action && webhookResult.userId && webhookResult.planId) {
       const sql = await createDatabaseClient(c.env.DATABASE_URL);
 
       switch (webhookResult.action) {
-        case 'subscription_activated':
+        case "subscription_activated":
           // Update user plan
           await sql`
             UPDATE users 
@@ -272,7 +298,7 @@ app.post('/mercadopago', async (c) => {
             ) VALUES (
               ${`sub_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`},
               ${webhookResult.userId}, ${webhookResult.planId}, 'active', 
-              ${webhookResult.planId === 'premium' ? 7990 : 14990}, 'monthly',
+              ${webhookResult.planId === "premium" ? 7990 : 14990}, 'monthly',
               NOW(), NOW()
             )
             ON CONFLICT (user_id) DO UPDATE SET
@@ -290,10 +316,12 @@ app.post('/mercadopago', async (c) => {
             WHERE user_id = ${webhookResult.userId} AND status = 'pending'
           `;
 
-          console.log(`Subscription activated for user ${webhookResult.userId}, plan ${webhookResult.planId}`);
+          console.log(
+            `Subscription activated for user ${webhookResult.userId}, plan ${webhookResult.planId}`
+          );
           break;
 
-        case 'payment_failed':
+        case "payment_failed":
           // Update subscription intent as failed
           await sql`
             UPDATE subscription_intents 
@@ -304,7 +332,7 @@ app.post('/mercadopago', async (c) => {
           console.log(`Payment failed for user ${webhookResult.userId}`);
           break;
 
-        case 'subscription_cancelled':
+        case "subscription_cancelled":
           // Update user plan to free
           await sql`
             UPDATE users 
@@ -319,23 +347,27 @@ app.post('/mercadopago', async (c) => {
             WHERE user_id = ${webhookResult.userId} AND status = 'active'
           `;
 
-          console.log(`Subscription cancelled for user ${webhookResult.userId}`);
+          console.log(
+            `Subscription cancelled for user ${webhookResult.userId}`
+          );
           break;
       }
     }
 
-    return c.json({ 
-      status: 'ok', 
-      message: 'Webhook processed successfully',
-      action: webhookResult.action 
+    return c.json({
+      status: "ok",
+      message: "Webhook processed successfully",
+      action: webhookResult.action,
     });
-
   } catch (error) {
-    console.error('MercadoPago webhook processing error:', error);
-    return c.json({ 
-      status: 'error', 
-      message: 'Webhook processing failed' 
-    }, 500);
+    console.error("MercadoPago webhook processing error:", error);
+    return c.json(
+      {
+        status: "error",
+        message: "Webhook processing failed",
+      },
+      500
+    );
   }
 });
 

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Card, CardContent } from '../ui';
+import type React from "react";
+import { Card, CardContent } from "../ui";
 
 interface DocsContentProps {
   children: React.ReactNode;
@@ -16,7 +16,7 @@ export const DocsContent: React.FC<DocsContentProps> = ({
   title,
   lastUpdated,
   readingTime,
-  showTableOfContents = true
+  showTableOfContents = true,
 }) => {
   return (
     <div className="max-w-4xl mx-auto">
@@ -25,9 +25,7 @@ export const DocsContent: React.FC<DocsContentProps> = ({
         <div className="mb-8 pb-8 border-b border-gray-800">
           <h1 className="text-4xl font-bold text-white mb-4">{title}</h1>
           <div className="flex items-center gap-4 text-sm text-gray-400">
-            {lastUpdated && (
-              <span>Actualizado: {lastUpdated}</span>
-            )}
+            {lastUpdated && <span>Actualizado: {lastUpdated}</span>}
             {readingTime && (
               <>
                 <span>•</span>

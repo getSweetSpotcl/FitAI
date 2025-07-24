@@ -1,13 +1,13 @@
 // Configuración de base de datos para Neon PostgreSQL
-import { neon } from '@neondatabase/serverless';
+import { neon } from "@neondatabase/serverless";
 
 export type DatabaseClient = ReturnType<typeof neon>;
 
 export function createDatabaseClient(connectionString: string): DatabaseClient {
   if (!connectionString) {
-    throw new Error('DATABASE_URL is required');
+    throw new Error("DATABASE_URL is required");
   }
-  
+
   return neon(connectionString);
 }
 
@@ -17,15 +17,15 @@ export interface User {
   email: string;
   name: string;
   clerk_user_id?: string;
-  user_role: 'user' | 'admin';
-  auth_provider: 'clerk' | 'jwt';
-  subscription_plan: 'free' | 'premium' | 'pro';
+  user_role: "user" | "admin";
+  auth_provider: "clerk";
+  subscription_plan: "free" | "premium" | "pro";
   profile_picture_url?: string;
   date_of_birth?: string;
   gender?: string;
   height_cm?: number;
   weight_kg?: number;
-  fitness_level?: 'beginner' | 'intermediate' | 'advanced';
+  fitness_level?: "beginner" | "intermediate" | "advanced";
   goals?: string[];
   created_at: string;
   updated_at: string;
@@ -34,7 +34,7 @@ export interface User {
   deleted_at?: string;
   // Legacy fields for backwards compatibility
   password_hash?: string;
-  plan?: 'free' | 'premium' | 'pro';
+  plan?: "free" | "premium" | "pro";
 }
 
 export interface Exercise {
@@ -45,8 +45,8 @@ export interface Exercise {
   category_id?: string;
   muscle_groups: string[];
   equipment: string;
-  difficulty?: 'beginner' | 'intermediate' | 'advanced';
-  difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
+  difficulty?: "beginner" | "intermediate" | "advanced";
+  difficulty_level?: "beginner" | "intermediate" | "advanced";
   instructions?: string | string[];
   instructions_es?: string[];
   tips?: string[];
@@ -66,7 +66,7 @@ export interface Routine {
   user_id: string;
   name: string;
   description?: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  difficulty: "beginner" | "intermediate" | "advanced";
   duration_weeks?: number;
   days_per_week?: number;
   goals?: string[];
@@ -115,7 +115,7 @@ export interface WorkoutSession {
   total_volume_kg?: number;
   average_rpe?: number;
   notes?: string;
-  mood?: 'terrible' | 'bad' | 'okay' | 'good' | 'amazing';
+  mood?: "terrible" | "bad" | "okay" | "good" | "amazing";
   created_at: string;
 }
 
@@ -137,7 +137,7 @@ export interface PersonalRecord {
   id: string;
   user_id: string;
   exercise_id: string;
-  record_type: '1rm' | 'volume' | 'reps' | 'time';
+  record_type: "1rm" | "volume" | "reps" | "time";
   value: number;
   unit: string;
   workout_session_id?: string;
@@ -160,7 +160,10 @@ export interface AIUsage {
 }
 
 // Funciones auxiliares para queries comunes
-export async function getUserByEmail(sql: DatabaseClient, email: string): Promise<User | null> {
+export async function getUserByEmail(
+  sql: DatabaseClient,
+  email: string
+): Promise<User | null> {
   try {
     const result = await sql`
       SELECT * FROM users 
@@ -169,12 +172,15 @@ export async function getUserByEmail(sql: DatabaseClient, email: string): Promis
     `;
     return result[0] || null;
   } catch (error) {
-    console.error('Error getting user by email:', error);
+    console.error("Error getting user by email:", error);
     throw error;
   }
 }
 
-export async function getUserByClerkId(sql: DatabaseClient, clerkUserId: string): Promise<User | null> {
+export async function getUserByClerkId(
+  sql: DatabaseClient,
+  clerkUserId: string
+): Promise<User | null> {
   try {
     const result = await sql`
       SELECT * FROM users 
@@ -183,12 +189,15 @@ export async function getUserByClerkId(sql: DatabaseClient, clerkUserId: string)
     `;
     return result[0] || null;
   } catch (error) {
-    console.error('Error getting user by Clerk ID:', error);
+    console.error("Error getting user by Clerk ID:", error);
     throw error;
   }
 }
 
-export async function getUserById(sql: DatabaseClient, userId: string): Promise<User | null> {
+export async function getUserById(
+  sql: DatabaseClient,
+  userId: string
+): Promise<User | null> {
   try {
     const result = await sql`
       SELECT * FROM users 
@@ -197,12 +206,15 @@ export async function getUserById(sql: DatabaseClient, userId: string): Promise<
     `;
     return result[0] || null;
   } catch (error) {
-    console.error('Error getting user by ID:', error);
+    console.error("Error getting user by ID:", error);
     throw error;
   }
 }
 
-export async function createUser(sql: DatabaseClient, userData: Omit<User, 'id' | 'created_at' | 'updated_at' | 'is_active'>): Promise<User> {
+export async function createUser(
+  sql: DatabaseClient,
+  userData: Omit<User, "id" | "created_at" | "updated_at" | "is_active">
+): Promise<User> {
   try {
     const result = await sql`
       INSERT INTO users (
@@ -218,113 +230,123 @@ export async function createUser(sql: DatabaseClient, userData: Omit<User, 'id' 
         height_cm, 
         weight_kg, 
         fitness_level, 
-        goals,
-        password_hash
+        goals
       )
       VALUES (
         ${userData.email}, 
         ${userData.name}, 
         ${userData.clerk_user_id || null}, 
-        ${userData.user_role || 'user'}, 
-        ${userData.auth_provider || 'clerk'}, 
-        ${userData.subscription_plan || 'free'}, 
+        ${userData.user_role || "user"}, 
+        ${userData.auth_provider || "clerk"}, 
+        ${userData.subscription_plan || "free"}, 
         ${userData.profile_picture_url || null}, 
         ${userData.date_of_birth || null}, 
         ${userData.gender || null}, 
         ${userData.height_cm || null}, 
         ${userData.weight_kg || null}, 
         ${userData.fitness_level || null}, 
-        ${userData.goals || null},
-        ${userData.password_hash || null}
+        ${userData.goals || null}
       )
       RETURNING *
     `;
     return result[0];
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error("Error creating user:", error);
     throw error;
   }
 }
 
-export async function getExercises(sql: DatabaseClient, filters?: {
-  category?: string;
-  muscle_group?: string;
-  equipment?: string;
-  difficulty?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<Exercise[]> {
+export async function getExercises(
+  sql: DatabaseClient,
+  filters?: {
+    category?: string;
+    muscle_group?: string;
+    equipment?: string;
+    difficulty?: string;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<Exercise[]> {
   try {
     let query = `SELECT * FROM exercises WHERE 1=1`;
     const params: any[] = [];
-    
+
     if (filters?.category) {
       query += ` AND category_id = $${params.length + 1}`;
       params.push(filters.category);
     }
-    
+
     if (filters?.muscle_group) {
       query += ` AND $${params.length + 1} = ANY(muscle_groups)`;
       params.push(filters.muscle_group);
     }
-    
+
     if (filters?.equipment) {
       query += ` AND equipment = $${params.length + 1}`;
       params.push(filters.equipment);
     }
-    
+
     if (filters?.difficulty) {
       query += ` AND difficulty = $${params.length + 1}`;
       params.push(filters.difficulty);
     }
-    
+
     query += ` ORDER BY name_es`;
-    
+
     if (filters?.limit) {
       query += ` LIMIT $${params.length + 1}`;
       params.push(filters.limit);
     }
-    
+
     if (filters?.offset) {
       query += ` OFFSET $${params.length + 1}`;
       params.push(filters.offset);
     }
-    
+
     // Para queries dinámicas con Neon, necesitamos usar sql.unsafe
     // Interpolate params into the query string
     let interpolatedQuery = query;
     params.forEach((param, index) => {
-      interpolatedQuery = interpolatedQuery.replace(`$${index + 1}`, `'${param}'`);
+      interpolatedQuery = interpolatedQuery.replace(
+        `$${index + 1}`,
+        `'${param}'`
+      );
     });
-    
+
     const result = await sql.unsafe(interpolatedQuery);
     return result as unknown as Exercise[];
   } catch (error) {
-    console.error('Error getting exercises:', error);
+    console.error("Error getting exercises:", error);
     throw error;
   }
 }
 
-export async function getUserRoutines(sql: DatabaseClient, userId: string): Promise<Routine[]> {
+export async function getUserRoutines(
+  sql: DatabaseClient,
+  userId: string
+): Promise<Routine[]> {
   try {
-    const result = await sql`
+    const result = (await sql`
       SELECT * FROM routines 
       WHERE user_id = ${userId} AND is_active = true 
       ORDER BY created_at DESC
-    ` as any;
+    `) as any;
     return result as Routine[];
   } catch (error) {
-    console.error('Error getting user routines:', error);
+    console.error("Error getting user routines:", error);
     throw error;
   }
 }
 
-export async function createWorkoutSession(sql: DatabaseClient, sessionData: {
-  user_id: string;
-  routine_id?: string;
-  routine_day_id?: string;
-  name: string;
-}): Promise<WorkoutSession> {
+export async function createWorkoutSession(
+  sql: DatabaseClient,
+  sessionData: {
+    user_id: string;
+    routine_id?: string;
+    routine_day_id?: string;
+    name: string;
+  }
+): Promise<WorkoutSession> {
   try {
     const result = await sql`
       INSERT INTO workout_sessions (user_id, routine_id, routine_day_id, name, started_at)
@@ -334,18 +356,22 @@ export async function createWorkoutSession(sql: DatabaseClient, sessionData: {
     `;
     return result[0];
   } catch (error) {
-    console.error('Error creating workout session:', error);
+    console.error("Error creating workout session:", error);
     throw error;
   }
 }
 
-export async function completeWorkoutSession(sql: DatabaseClient, sessionId: string, completionData: {
-  duration_minutes?: number;
-  total_volume_kg?: number;
-  average_rpe?: number;
-  notes?: string;
-  mood?: string;
-}): Promise<WorkoutSession> {
+export async function completeWorkoutSession(
+  sql: DatabaseClient,
+  sessionId: string,
+  completionData: {
+    duration_minutes?: number;
+    total_volume_kg?: number;
+    average_rpe?: number;
+    notes?: string;
+    mood?: string;
+  }
+): Promise<WorkoutSession> {
   try {
     const result = await sql`
       UPDATE workout_sessions 
@@ -361,21 +387,24 @@ export async function completeWorkoutSession(sql: DatabaseClient, sessionId: str
     `;
     return result[0];
   } catch (error) {
-    console.error('Error completing workout session:', error);
+    console.error("Error completing workout session:", error);
     throw error;
   }
 }
 
-export async function addWorkoutSet(sql: DatabaseClient, setData: {
-  workout_session_id: string;
-  exercise_id: string;
-  set_number: number;
-  reps?: number;
-  weight_kg?: number;
-  rest_time_seconds?: number;
-  rpe?: number;
-  notes?: string;
-}): Promise<WorkoutSet> {
+export async function addWorkoutSet(
+  sql: DatabaseClient,
+  setData: {
+    workout_session_id: string;
+    exercise_id: string;
+    set_number: number;
+    reps?: number;
+    weight_kg?: number;
+    rest_time_seconds?: number;
+    rpe?: number;
+    notes?: string;
+  }
+): Promise<WorkoutSet> {
   try {
     const result = await sql`
       INSERT INTO workout_sets (
@@ -392,35 +421,44 @@ export async function addWorkoutSet(sql: DatabaseClient, setData: {
     `;
     return result[0];
   } catch (error) {
-    console.error('Error adding workout set:', error);
+    console.error("Error adding workout set:", error);
     throw error;
   }
 }
 
-export async function getUserWorkouts(sql: DatabaseClient, userId: string, limit = 20, offset = 0): Promise<WorkoutSession[]> {
+export async function getUserWorkouts(
+  sql: DatabaseClient,
+  userId: string,
+  limit = 20,
+  offset = 0
+): Promise<WorkoutSession[]> {
   try {
-    const result = await sql`
+    const result = (await sql`
       SELECT * FROM workout_sessions 
       WHERE user_id = ${userId}
       ORDER BY started_at DESC
       LIMIT ${limit}
       OFFSET ${offset}
-    ` as any;
+    `) as any;
     return result as WorkoutSession[];
   } catch (error) {
-    console.error('Error getting user workouts:', error);
+    console.error("Error getting user workouts:", error);
     throw error;
   }
 }
 
-export async function getWorkoutWithSets(sql: DatabaseClient, sessionId: string, userId: string): Promise<WorkoutSession & { sets: WorkoutSet[] } | null> {
+export async function getWorkoutWithSets(
+  sql: DatabaseClient,
+  sessionId: string,
+  userId: string
+): Promise<(WorkoutSession & { sets: WorkoutSet[] }) | null> {
   try {
     // Get workout session
-    const sessionResult = await sql`
+    const sessionResult = (await sql`
       SELECT * FROM workout_sessions 
       WHERE id = ${sessionId} AND user_id = ${userId}
       LIMIT 1
-    ` as any;
+    `) as any;
 
     if ((sessionResult as any[]).length === 0) {
       return null;
@@ -443,7 +481,7 @@ export async function getWorkoutWithSets(sql: DatabaseClient, sessionId: string,
       sets: setsResult,
     };
   } catch (error) {
-    console.error('Error getting workout with sets:', error);
+    console.error("Error getting workout with sets:", error);
     throw error;
   }
 }

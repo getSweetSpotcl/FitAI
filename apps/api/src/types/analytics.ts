@@ -1,12 +1,20 @@
 // Advanced Analytics Types for FitAI
 
-export type PeriodType = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
-export type ReportFormat = 'pdf' | 'csv' | 'json';
-export type ReportStatus = 'pending' | 'generating' | 'completed' | 'failed';
-export type TrendDirection = 'improving' | 'declining' | 'plateauing' | 'volatile';
-export type InsightType = 'pattern' | 'anomaly' | 'recommendation' | 'achievement';
-export type AchievementType = 'milestone' | 'streak' | 'pr' | 'goal_completion';
-export type ComparisonType = 'peer_group' | 'benchmark' | 'historical';
+export type PeriodType = "weekly" | "monthly" | "quarterly" | "yearly";
+export type ReportFormat = "pdf" | "csv" | "json";
+export type ReportStatus = "pending" | "generating" | "completed" | "failed";
+export type TrendDirection =
+  | "improving"
+  | "declining"
+  | "plateauing"
+  | "volatile";
+export type InsightType =
+  | "pattern"
+  | "anomaly"
+  | "recommendation"
+  | "achievement";
+export type AchievementType = "milestone" | "streak" | "pr" | "goal_completion";
+export type ComparisonType = "peer_group" | "benchmark" | "historical";
 
 // User Analytics Snapshot
 export interface UserAnalyticsSnapshot {
@@ -15,7 +23,7 @@ export interface UserAnalyticsSnapshot {
   periodType: PeriodType;
   periodStart: Date;
   periodEnd: Date;
-  
+
   // Workout metrics
   totalWorkouts: number;
   totalWorkoutMinutes: number;
@@ -23,34 +31,34 @@ export interface UserAnalyticsSnapshot {
   avgWorkoutIntensity: number;
   totalCaloriesBurned: number;
   totalDistanceKm: number;
-  
+
   // Performance metrics
   strengthPrCount: number;
   enduranceImprovements: number;
   consistencyScore: number;
-  
+
   // Health metrics
   avgRecoveryScore: number;
   avgSleepHours: number;
   avgSleepEfficiency: number;
   avgHrvScore: number;
   avgRestingHr: number;
-  
+
   // Body composition
   weightChangeKg: number;
   bodyFatChange: number;
   muscleMassChange: number;
-  
+
   // Goals progress
   goalsAchieved: number;
   goalsTotal: number;
   goalCompletionRate: number;
-  
+
   // Calculated scores
   overallFitnessScore: number;
   progressVelocity: number;
   adherenceScore: number;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,11 +73,11 @@ export interface ProgressPrediction {
   confidenceScore: number;
   actualValue?: number;
   accuracyScore?: number;
-  
+
   modelVersion?: string;
   inputDataPoints: number;
   predictionHorizonDays: number;
-  
+
   createdAt: Date;
   achievedAt?: Date;
 }
@@ -81,7 +89,7 @@ export interface FitnessBenchmark {
   subcategory: string;
   demographic: string;
   experienceLevel: string;
-  
+
   p10Value?: number;
   p25Value?: number;
   p50Value?: number; // Median
@@ -89,7 +97,7 @@ export interface FitnessBenchmark {
   p90Value?: number;
   p95Value?: number;
   p99Value?: number;
-  
+
   unit: string;
   sampleSize: number;
   lastUpdated: Date;
@@ -102,23 +110,23 @@ export interface UserReport {
   userId: string;
   reportType: string;
   reportFormat: ReportFormat;
-  
+
   startDate: Date;
   endDate: Date;
   sections: Record<string, any>;
-  
+
   fileUrl?: string;
   fileSizeMb?: number;
   generationDurationMs?: number;
-  
+
   status: ReportStatus;
   errorMessage?: string;
-  
+
   generatedAt?: Date;
   expiresAt?: Date;
   downloadCount: number;
   lastDownloadedAt?: Date;
-  
+
   createdAt: Date;
 }
 
@@ -128,19 +136,19 @@ export interface WorkoutInsight {
   userId: string;
   insightType: InsightType;
   insightCategory: string;
-  
+
   title: string;
   description: string;
   insightData: Record<string, any>;
-  
+
   importanceScore: number;
   confidenceScore: number;
   actionable: boolean;
-  
+
   isRead: boolean;
   isDismissed: boolean;
-  userFeedback?: 'helpful' | 'not_helpful' | 'irrelevant';
-  
+  userFeedback?: "helpful" | "not_helpful" | "irrelevant";
+
   detectedAt: Date;
   expiresAt?: Date;
   createdAt: Date;
@@ -152,19 +160,19 @@ export interface PerformanceTrend {
   userId: string;
   metricName: string;
   metricCategory: string;
-  
+
   // Last 12 weeks data
   weeklyValues: (number | null)[];
-  
+
   trendDirection: TrendDirection;
   trendStrength: number;
   improvementRate: number;
-  
+
   meanValue: number;
   stdDeviation: number;
   minValue: number;
   maxValue: number;
-  
+
   lastCalculatedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -176,21 +184,21 @@ export interface UserAchievement {
   userId: string;
   achievementType: AchievementType;
   category: string;
-  
+
   name: string;
   description?: string;
   iconName?: string;
   badgeColor?: string;
-  
+
   valueAchieved: number;
   unit?: string;
   previousBest?: number;
   improvementPercent?: number;
-  
+
   difficultyLevel: number;
   rarityScore: number;
   pointsAwarded: number;
-  
+
   achievedAt: Date;
   createdAt: Date;
 }
@@ -201,14 +209,14 @@ export interface UserComparison {
   userId: string;
   comparisonType: ComparisonType;
   metricName: string;
-  
+
   userValue: number;
   comparisonValue: number;
   percentileRank?: number;
-  
+
   comparisonGroup: string;
   sampleSize?: number;
-  
+
   calculatedAt: Date;
   validUntil?: Date;
 }
@@ -218,7 +226,7 @@ export interface DashboardAnalytics {
   userId: string;
   currentPeriod: UserAnalyticsSnapshot;
   previousPeriod?: UserAnalyticsSnapshot;
-  
+
   // Key metrics
   keyMetrics: {
     fitnessScore: {
@@ -246,25 +254,29 @@ export interface DashboardAnalytics {
       }>;
     };
   };
-  
+
   // Recent insights
   recentInsights: WorkoutInsight[];
-  
+
   // Progress predictions
   predictions: ProgressPrediction[];
-  
+
   // Achievements
   recentAchievements: UserAchievement[];
-  
+
   // Benchmarking
   benchmarkComparisons: UserComparison[];
-  
+
   lastUpdated: Date;
 }
 
 // Report Generation Request
 export interface GenerateReportRequest {
-  reportType: 'fitness_summary' | 'progress_analysis' | 'health_insights' | 'custom';
+  reportType:
+    | "fitness_summary"
+    | "progress_analysis"
+    | "health_insights"
+    | "custom";
   format: ReportFormat;
   period: {
     startDate: Date;
@@ -280,7 +292,7 @@ export interface GenerateReportRequest {
     predictions?: boolean;
   };
   includeCharts?: boolean;
-  chartStyle?: 'minimal' | 'detailed';
+  chartStyle?: "minimal" | "detailed";
 }
 
 // Analytics Query Parameters
@@ -355,7 +367,7 @@ export interface ChartDataPoint {
 
 export interface ChartData {
   title: string;
-  type: 'line' | 'bar' | 'area' | 'scatter';
+  type: "line" | "bar" | "area" | "scatter";
   data: ChartDataPoint[];
   yAxis: {
     label: string;
@@ -366,6 +378,6 @@ export interface ChartData {
   annotations?: Array<{
     date: string;
     text: string;
-    type: 'milestone' | 'goal' | 'note';
+    type: "milestone" | "goal" | "note";
   }>;
 }

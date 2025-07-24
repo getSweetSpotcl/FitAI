@@ -1,14 +1,12 @@
-import { Context } from 'hono';
-
 export interface AIAction {
-  type: 'routine_generation' | 'exercise_advice' | 'progress_analysis';
-  complexity: 'simple' | 'medium' | 'complex';
+  type: "routine_generation" | "exercise_advice" | "progress_analysis";
+  complexity: "simple" | "medium" | "complex";
 }
 
 export interface UserProfile {
   id: string;
-  plan: 'free' | 'premium' | 'pro';
-  experienceLevel: 'beginner' | 'intermediate' | 'advanced';
+  plan: "free" | "premium" | "pro";
+  experienceLevel: "beginner" | "intermediate" | "advanced";
   goals: string[];
   availableDays: number;
   availableEquipment: string[];
@@ -54,15 +52,15 @@ export const PLAN_LIMITS = {
 export const CACHE_STRATEGY: CacheStrategy = {
   routineTemplates: {
     ttl: 604800, // 7 días en segundos
-    keyPrefix: 'routine_template',
+    keyPrefix: "routine_template",
   },
   exerciseAdvice: {
     ttl: 86400, // 24 horas
-    keyPrefix: 'exercise_advice',
+    keyPrefix: "exercise_advice",
   },
   commonQuestions: {
     ttl: 2592000, // 30 días
-    keyPrefix: 'common_questions',
+    keyPrefix: "common_questions",
   },
 };
 
@@ -76,7 +74,10 @@ export class AIResourceManager {
   /**
    * Verifica y consume créditos de IA para un usuario
    */
-  async checkAndConsume(userId: string, action: AIAction): Promise<{
+  async checkAndConsume(
+    userId: string,
+    action: AIAction
+  ): Promise<{
     allowed: boolean;
     remaining?: number;
     error?: string;
@@ -85,12 +86,14 @@ export class AIResourceManager {
       // Obtener información del usuario
       const userKey = `ai_usage:${userId}:${this.getCurrentMonth()}`;
       const currentUsage = await this.redis.get(userKey);
-      
-      const usage = currentUsage ? JSON.parse(currentUsage) : {
-        routine_generation: 0,
-        exercise_advice: 0,
-        progress_analysis: 0,
-      };
+
+      const usage = currentUsage
+        ? JSON.parse(currentUsage)
+        : {
+            routine_generation: 0,
+            exercise_advice: 0,
+            progress_analysis: 0,
+          };
 
       // Obtener plan del usuario (por ahora mock, luego desde BD)
       const userPlan = await this.getUserPlan(userId);
@@ -109,23 +112,25 @@ export class AIResourceManager {
 
       // Consumir crédito
       usage[action.type] = currentActionUsage + 1;
-      
+
       // Guardar con TTL hasta fin de mes
       const ttl = this.getSecondsUntilEndOfMonth();
-      await this.redis.put(userKey, JSON.stringify(usage), { expirationTtl: ttl });
+      await this.redis.put(userKey, JSON.stringify(usage), {
+        expirationTtl: ttl,
+      });
 
-      const remaining = actionLimit === -1 ? -1 : actionLimit - usage[action.type];
+      const remaining =
+        actionLimit === -1 ? -1 : actionLimit - usage[action.type];
 
       return {
         allowed: true,
         remaining,
       };
-
     } catch (error) {
-      console.error('Error checking AI credits:', error);
+      console.error("Error checking AI credits:", error);
       return {
         allowed: false,
-        error: 'Error interno del servidor',
+        error: "Error interno del servidor",
       };
     }
   }
@@ -138,7 +143,7 @@ export class AIResourceManager {
       const cached = await this.redis.get(cacheKey);
       return cached ? JSON.parse(cached) : null;
     } catch (error) {
-      console.error('Error getting cached response:', error);
+      console.error("Error getting cached response:", error);
       return null;
     }
   }
@@ -148,9 +153,11 @@ export class AIResourceManager {
    */
   async cacheResponse(cacheKey: string, data: any, ttl: number): Promise<void> {
     try {
-      await this.redis.put(cacheKey, JSON.stringify(data), { expirationTtl: ttl });
+      await this.redis.put(cacheKey, JSON.stringify(data), {
+        expirationTtl: ttl,
+      });
     } catch (error) {
-      console.error('Error caching response:', error);
+      console.error("Error caching response:", error);
     }
   }
 
@@ -160,12 +167,12 @@ export class AIResourceManager {
   generateRoutineCacheKey(userProfile: UserProfile): string {
     const key = [
       userProfile.experienceLevel,
-      userProfile.goals.sort().join('-'),
+      userProfile.goals.sort().join("-"),
       userProfile.availableDays.toString(),
-      userProfile.availableEquipment.sort().join('-'),
-      userProfile.injuries?.sort().join('-') || 'none',
-    ].join(':');
-    
+      userProfile.availableEquipment.sort().join("-"),
+      userProfile.injuries?.sort().join("-") || "none",
+    ].join(":");
+
     return `${CACHE_STRATEGY.routineTemplates.keyPrefix}:${this.hashString(key)}`;
   }
 
@@ -180,9 +187,11 @@ export class AIResourceManager {
   /**
    * Obtiene el plan del usuario (mock por ahora)
    */
-  private async getUserPlan(userId: string): Promise<'free' | 'premium' | 'pro'> {
+  private async getUserPlan(
+    _userId: string
+  ): Promise<"free" | "premium" | "pro"> {
     // TODO: Obtener desde base de datos
-    return 'free';
+    return "free";
   }
 
   /**
@@ -190,7 +199,7 @@ export class AIResourceManager {
    */
   private getCurrentMonth(): string {
     const now = new Date();
-    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}`;
   }
 
   /**
@@ -198,7 +207,14 @@ export class AIResourceManager {
    */
   private getSecondsUntilEndOfMonth(): number {
     const now = new Date();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59
+    );
     return Math.floor((endOfMonth.getTime() - now.getTime()) / 1000);
   }
 
@@ -209,7 +225,7 @@ export class AIResourceManager {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convertir a 32bit integer
     }
     return Math.abs(hash).toString(36);
@@ -226,11 +242,13 @@ export class AIResourceManager {
   }> {
     const userKey = `ai_usage:${userId}:${this.getCurrentMonth()}`;
     const currentUsage = await this.redis.get(userKey);
-    const usage = currentUsage ? JSON.parse(currentUsage) : {
-      routine_generation: 0,
-      exercise_advice: 0,
-      progress_analysis: 0,
-    };
+    const usage = currentUsage
+      ? JSON.parse(currentUsage)
+      : {
+          routine_generation: 0,
+          exercise_advice: 0,
+          progress_analysis: 0,
+        };
 
     const userPlan = await this.getUserPlan(userId);
     const limits = PLAN_LIMITS[userPlan];

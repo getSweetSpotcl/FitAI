@@ -1,23 +1,21 @@
-import { Hono } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { authMiddleware } from '../middleware/auth';
-import { createDatabaseClient, getUserByClerkId } from '../db/database';
-import { HealthDataService } from '../lib/health-data-service';
-import { HealthKitService } from '../lib/healthkit-service';
-import {
-  SyncHealthDataRequest,
-  SyncHealthDataResponse,
-  HealthMetricsQuery,
-  HealthMetricsResponse,
-  RecoveryAnalysis,
-  HealthDataType,
-  TrainingReadiness,
-  UpdateHealthProfileRequest,
-  HealthKitPermissionRequest,
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { createDatabaseClient, getUserByClerkId } from "../db/database";
+import { HealthDataService } from "../lib/health-data-service";
+import { HealthKitService } from "../lib/healthkit-service";
+import { clerkAuth } from "../middleware/clerk-auth";
+import type {
   AddHealthMetricRequest,
   HealthDashboardQuery,
-  HeartRateAnalysisQuery
-} from '../types/health';
+  HealthKitPermissionRequest,
+  HealthMetricsQuery,
+  HealthMetricsResponse,
+  HeartRateAnalysisQuery,
+  SyncHealthDataRequest,
+  SyncHealthDataResponse,
+  TrainingReadiness,
+  UpdateHealthProfileRequest,
+} from "../types/health";
 
 type Bindings = {
   DATABASE_URL: string;
@@ -30,92 +28,108 @@ type Variables = {
   user?: {
     id: string;
     email: string;
-    plan: 'free' | 'premium' | 'pro';
+    plan: "free" | "premium" | "pro";
     userId?: string;
     firstName?: string;
     lastName?: string;
-    role?: 'user' | 'admin';
+    role?: "user" | "admin";
   };
 };
 
 const health = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Apply auth middleware to all routes (except public health check)
-health.use('*', authMiddleware);
+health.use("*", clerkAuth());
 
 // Public health check endpoint (no auth required)
-health.get('/status', (c) => {
-  return c.json({ status: 'healthy', timestamp: new Date().toISOString() });
+health.get("/status", (c) => {
+  return c.json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
 /**
  * Sync comprehensive health data from Apple Health
  * POST /api/v1/health/sync
  */
-health.post('/sync', async (c) => {
+health.post("/sync", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const requestData: SyncHealthDataRequest = await c.req.json();
-    
+
     if (!requestData.dataType || !requestData.data) {
-      throw new HTTPException(400, { message: 'dataType y data son requeridos' });
+      throw new HTTPException(400, {
+        message: "dataType y data son requeridos",
+      });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     const healthService = new HealthDataService(sql);
-    
+
     let recordsProcessed = 0;
     let recordsAdded = 0;
     let errorMessage: string | undefined;
 
     try {
       switch (requestData.dataType) {
-        case 'metrics':
+        case "metrics":
           if (requestData.data.metrics) {
-            recordsAdded = await healthService.saveHealthMetrics(dbUser.id, requestData.data.metrics);
+            recordsAdded = await healthService.saveHealthMetrics(
+              dbUser.id,
+              requestData.data.metrics
+            );
             recordsProcessed = requestData.data.metrics.length;
           }
           break;
-          
-        case 'workouts':
+
+        case "workouts":
           if (requestData.data.workouts) {
-            recordsAdded = await healthService.saveHealthWorkouts(dbUser.id, requestData.data.workouts);
+            recordsAdded = await healthService.saveHealthWorkouts(
+              dbUser.id,
+              requestData.data.workouts
+            );
             recordsProcessed = requestData.data.workouts.length;
           }
           break;
-          
-        case 'sleep':
+
+        case "sleep":
           if (requestData.data.sleep) {
-            recordsAdded = await healthService.saveSleepData(dbUser.id, requestData.data.sleep);
+            recordsAdded = await healthService.saveSleepData(
+              dbUser.id,
+              requestData.data.sleep
+            );
             recordsProcessed = requestData.data.sleep.length;
           }
           break;
-          
-        case 'hrv':
+
+        case "hrv":
           if (requestData.data.hrv) {
-            recordsAdded = await healthService.saveHRVData(dbUser.id, requestData.data.hrv);
+            recordsAdded = await healthService.saveHRVData(
+              dbUser.id,
+              requestData.data.hrv
+            );
             recordsProcessed = requestData.data.hrv.length;
           }
           break;
-          
+
         default:
-          throw new HTTPException(400, { message: `Tipo de datos no soportado: ${requestData.dataType}` });
+          throw new HTTPException(400, {
+            message: `Tipo de datos no soportado: ${requestData.dataType}`,
+          });
       }
 
       // Update sync status
       await healthService.updateSyncStatus(
         dbUser.id,
         requestData.dataType,
-        'success',
+        "success",
         recordsAdded,
         errorMessage
       );
@@ -126,36 +140,37 @@ health.post('/sync', async (c) => {
         recordsAdded,
         recordsUpdated: 0,
         recordsSkipped: recordsProcessed - recordsAdded,
-        syncStatus: 'success',
-        nextSyncRecommendedAt: new Date(Date.now() + 4 * 60 * 60 * 1000) // 4 hours
+        syncStatus: "success",
+        nextSyncRecommendedAt: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours
       };
 
       return c.json({
         success: true,
         data: response,
-        message: `Sincronizados ${recordsAdded} registros de ${requestData.dataType}`
+        message: `Sincronizados ${recordsAdded} registros de ${requestData.dataType}`,
       });
-
     } catch (syncError) {
-      errorMessage = syncError instanceof Error ? syncError.message : 'Error desconocido';
-      
+      errorMessage =
+        syncError instanceof Error ? syncError.message : "Error desconocido";
+
       await healthService.updateSyncStatus(
         dbUser.id,
         requestData.dataType,
-        'failed',
+        "failed",
         0,
         errorMessage
       );
 
-      throw new HTTPException(500, { message: `Error sincronizando datos: ${errorMessage}` });
+      throw new HTTPException(500, {
+        message: `Error sincronizando datos: ${errorMessage}`,
+      });
     }
-
   } catch (error) {
-    console.error('Health sync error:', error);
+    console.error("Health sync error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error interno del servidor' });
+    throw new HTTPException(500, { message: "Error interno del servidor" });
   }
 });
 
@@ -163,43 +178,51 @@ health.post('/sync', async (c) => {
  * Get recovery analysis and recommendations
  * GET /api/v1/health/recovery
  */
-health.get('/recovery', async (c) => {
+health.get("/recovery", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     const healthService = new HealthDataService(sql);
-    const recoveryAnalysis = await healthService.calculateRecoveryScore(dbUser.id);
+    const recoveryAnalysis = await healthService.calculateRecoveryScore(
+      dbUser.id
+    );
 
     // Determine training readiness based on recovery score
     let trainingReadiness: TrainingReadiness;
-    if (recoveryAnalysis.currentScore >= 80) trainingReadiness = 'high';
-    else if (recoveryAnalysis.currentScore >= 60) trainingReadiness = 'moderate';
-    else if (recoveryAnalysis.currentScore >= 40) trainingReadiness = 'low';
-    else trainingReadiness = 'rest';
+    if (recoveryAnalysis.currentScore >= 80) trainingReadiness = "high";
+    else if (recoveryAnalysis.currentScore >= 60)
+      trainingReadiness = "moderate";
+    else if (recoveryAnalysis.currentScore >= 40) trainingReadiness = "low";
+    else trainingReadiness = "rest";
 
     // Save recommendation for today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     await healthService.saveRecoveryRecommendation(dbUser.id, {
       recommendationDate: today,
       recoveryScore: recoveryAnalysis.currentScore,
       trainingReadiness,
-      recommendedIntensity: trainingReadiness === 'rest' ? 'active_recovery' :
-                           trainingReadiness === 'low' ? 'low' :
-                           trainingReadiness === 'moderate' ? 'moderate' : 'high',
+      recommendedIntensity:
+        trainingReadiness === "rest"
+          ? "active_recovery"
+          : trainingReadiness === "low"
+            ? "low"
+            : trainingReadiness === "moderate"
+              ? "moderate"
+              : "high",
       recommendations: recoveryAnalysis.recommendations,
       factorsAnalyzed: Object.keys(recoveryAnalysis.factorsInfluencing),
-      aiGenerated: false
+      aiGenerated: false,
     });
 
     return c.json({
@@ -207,16 +230,17 @@ health.get('/recovery', async (c) => {
       data: {
         ...recoveryAnalysis,
         trainingReadiness,
-        lastUpdated: new Date().toISOString()
-      }
+        lastUpdated: new Date().toISOString(),
+      },
     });
-
   } catch (error) {
-    console.error('Get recovery analysis error:', error);
+    console.error("Get recovery analysis error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error obteniendo análisis de recuperación' });
+    throw new HTTPException(500, {
+      message: "Error obteniendo análisis de recuperación",
+    });
   }
 });
 
@@ -224,74 +248,83 @@ health.get('/recovery', async (c) => {
  * Get health metrics with filtering options
  * GET /api/v1/health/metrics
  */
-health.get('/metrics', async (c) => {
+health.get("/metrics", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     // Parse query parameters
-    const metricTypesParam = c.req.query('metricTypes');
-    const startDateParam = c.req.query('startDate');
-    const endDateParam = c.req.query('endDate');
-    const limitParam = c.req.query('limit');
-    const aggregationParam = c.req.query('aggregation') as 'raw' | 'daily' | 'weekly' | 'monthly' | undefined;
+    const metricTypesParam = c.req.query("metricTypes");
+    const startDateParam = c.req.query("startDate");
+    const endDateParam = c.req.query("endDate");
+    const limitParam = c.req.query("limit");
+    const aggregationParam = c.req.query("aggregation") as
+      | "raw"
+      | "daily"
+      | "weekly"
+      | "monthly"
+      | undefined;
 
     const query: HealthMetricsQuery = {
-      metricTypes: metricTypesParam ? metricTypesParam.split(',') as any[] : undefined,
+      metricTypes: metricTypesParam
+        ? (metricTypesParam.split(",") as any[])
+        : undefined,
       startDate: startDateParam ? new Date(startDateParam) : undefined,
       endDate: endDateParam ? new Date(endDateParam) : undefined,
       limit: limitParam ? parseInt(limitParam) : 1000,
-      aggregation: aggregationParam || 'raw'
+      aggregation: aggregationParam || "raw",
     };
 
     const healthService = new HealthDataService(sql);
     const metrics = await healthService.getHealthMetrics(dbUser.id, query);
 
     // Default date range if not specified
-    const startDate = query.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+    const startDate =
+      query.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
     const endDate = query.endDate || new Date();
 
     const response: HealthMetricsResponse = {
       success: true,
       data: {
-        metrics
+        metrics,
       },
       period: {
         startDate,
-        endDate
-      }
+        endDate,
+      },
     };
 
     return c.json(response);
-
   } catch (error) {
-    console.error('Get health metrics error:', error);
+    console.error("Get health metrics error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error obteniendo métricas de salud' });
+    throw new HTTPException(500, {
+      message: "Error obteniendo métricas de salud",
+    });
   }
 });
 
 /**
  * Sync workout data from HealthKit (legacy endpoint - preserved for compatibility)
  */
-health.post('/sync-workout', async (c) => {
+health.post("/sync-workout", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
-    const workoutData = await c.req.json() as {
+    const workoutData = (await c.req.json()) as {
       workoutActivityType: string;
       startDate: string;
       endDate: string;
@@ -305,9 +338,14 @@ health.post('/sync-workout', async (c) => {
     };
 
     // Validate required fields
-    if (!workoutData.workoutActivityType || !workoutData.startDate || !workoutData.endDate) {
-      throw new HTTPException(400, { 
-        message: 'Faltan campos requeridos: workoutActivityType, startDate, endDate' 
+    if (
+      !workoutData.workoutActivityType ||
+      !workoutData.startDate ||
+      !workoutData.endDate
+    ) {
+      throw new HTTPException(400, {
+        message:
+          "Faltan campos requeridos: workoutActivityType, startDate, endDate",
       });
     }
 
@@ -318,16 +356,20 @@ health.post('/sync-workout', async (c) => {
       type: workoutData.workoutActivityType,
       startTime: new Date(workoutData.startDate),
       endTime: new Date(workoutData.endDate),
-      duration: Math.floor((new Date(workoutData.endDate).getTime() - new Date(workoutData.startDate).getTime()) / 1000),
+      duration: Math.floor(
+        (new Date(workoutData.endDate).getTime() -
+          new Date(workoutData.startDate).getTime()) /
+          1000
+      ),
       calories: workoutData.totalEnergyBurned || 0,
       distance: workoutData.totalDistance || 0,
       heartRateData: workoutData.heartRateData || [],
       metadata: workoutData.metadata || {},
-      source: 'HealthKit',
+      source: "HealthKit",
       createdAt: new Date(),
     };
 
-    console.log('Syncing workout from HealthKit:', healthWorkout);
+    console.log("Syncing workout from HealthKit:", healthWorkout);
 
     // Store in cache for quick access
     await c.env.CACHE.put(
@@ -339,26 +381,25 @@ health.post('/sync-workout', async (c) => {
     return c.json({
       success: true,
       data: healthWorkout,
-      message: 'Entrenamiento sincronizado exitosamente'
+      message: "Entrenamiento sincronizado exitosamente",
     });
-
   } catch (error) {
-    console.error('Health sync error:', error);
+    console.error("Health sync error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error interno del servidor' });
+    throw new HTTPException(500, { message: "Error interno del servidor" });
   }
 });
 
 /**
  * Get health stats summary
  */
-health.get('/stats', async (c) => {
+health.get("/stats", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     // In production, this would query database for actual user health data
@@ -392,47 +433,48 @@ health.get('/stats', async (c) => {
         heartRateVariability: {
           current: 45,
           change: +3.2, // +3.2ms improvement
-          trend: 'improving'
+          trend: "improving",
         },
         restingHeartRate: {
           current: 62,
           change: -2, // -2 BPM improvement
-          trend: 'improving'
+          trend: "improving",
         },
         sleepQuality: {
           avgHours: 7.5,
           deepSleepPercent: 18,
-          trend: 'stable'
-        }
-      }
+          trend: "stable",
+        },
+      },
     };
 
     return c.json({
       success: true,
       data: healthStats,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     });
-
   } catch (error) {
-    console.error('Health stats error:', error);
+    console.error("Health stats error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error obteniendo estadísticas de salud' });
+    throw new HTTPException(500, {
+      message: "Error obteniendo estadísticas de salud",
+    });
   }
 });
 
 /**
  * Record heart rate data during workout
  */
-health.post('/heart-rate', async (c) => {
+health.post("/heart-rate", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
-    const heartRateData = await c.req.json() as {
+    const heartRateData = (await c.req.json()) as {
       workoutId?: string;
       heartRateReadings: Array<{
         value: number;
@@ -441,29 +483,40 @@ health.post('/heart-rate', async (c) => {
       }>;
     };
 
-    if (!heartRateData.heartRateReadings || heartRateData.heartRateReadings.length === 0) {
-      throw new HTTPException(400, { message: 'No se proporcionaron datos de frecuencia cardíaca' });
+    if (
+      !heartRateData.heartRateReadings ||
+      heartRateData.heartRateReadings.length === 0
+    ) {
+      throw new HTTPException(400, {
+        message: "No se proporcionaron datos de frecuencia cardíaca",
+      });
     }
 
     // Process heart rate data
     const processedData = {
       userId: user.id,
       workoutId: heartRateData.workoutId || `workout_${Date.now()}`,
-      readings: heartRateData.heartRateReadings.map(reading => ({
+      readings: heartRateData.heartRateReadings.map((reading) => ({
         ...reading,
         timestamp: new Date(reading.timestamp),
-        zone: reading.zone || determineHeartRateZone(reading.value)
+        zone: reading.zone || determineHeartRateZone(reading.value),
       })),
       summary: {
         avgHeartRate: Math.round(
-          heartRateData.heartRateReadings.reduce((sum, reading) => sum + reading.value, 0) / 
-          heartRateData.heartRateReadings.length
+          heartRateData.heartRateReadings.reduce(
+            (sum, reading) => sum + reading.value,
+            0
+          ) / heartRateData.heartRateReadings.length
         ),
-        maxHeartRate: Math.max(...heartRateData.heartRateReadings.map(r => r.value)),
-        minHeartRate: Math.min(...heartRateData.heartRateReadings.map(r => r.value)),
-        timeInZones: calculateTimeInZones(heartRateData.heartRateReadings)
+        maxHeartRate: Math.max(
+          ...heartRateData.heartRateReadings.map((r) => r.value)
+        ),
+        minHeartRate: Math.min(
+          ...heartRateData.heartRateReadings.map((r) => r.value)
+        ),
+        timeInZones: calculateTimeInZones(heartRateData.heartRateReadings),
       },
-      recordedAt: new Date()
+      recordedAt: new Date(),
     };
 
     // Store in cache for real-time access
@@ -476,78 +529,89 @@ health.post('/heart-rate', async (c) => {
     return c.json({
       success: true,
       data: processedData,
-      message: 'Datos de frecuencia cardíaca registrados'
+      message: "Datos de frecuencia cardíaca registrados",
     });
-
   } catch (error) {
-    console.error('Heart rate recording error:', error);
+    console.error("Heart rate recording error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error registrando frecuencia cardíaca' });
+    throw new HTTPException(500, {
+      message: "Error registrando frecuencia cardíaca",
+    });
   }
 });
 
 /**
  * Get current workout heart rate
  */
-health.get('/current-heart-rate/:workoutId?', async (c) => {
+health.get("/current-heart-rate/:workoutId?", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     // Get current workout heart rate from cache
-    const cachedData = await c.env.CACHE.get(`user:${user.id}:current_workout_hr`);
-    
+    const cachedData = await c.env.CACHE.get(
+      `user:${user.id}:current_workout_hr`
+    );
+
     if (!cachedData) {
       return c.json({
         success: true,
         data: null,
-        message: 'No hay datos de frecuencia cardíaca activos'
+        message: "No hay datos de frecuencia cardíaca activos",
       });
     }
 
     const heartRateData = JSON.parse(cachedData);
-    
+
     // Get latest reading
-    const latestReading = heartRateData.readings[heartRateData.readings.length - 1];
-    
+    const latestReading =
+      heartRateData.readings[heartRateData.readings.length - 1];
+
     return c.json({
       success: true,
       data: {
         current: latestReading,
         summary: heartRateData.summary,
-        isActive: new Date().getTime() - new Date(latestReading.timestamp).getTime() < 300000 // 5 minutes
-      }
+        isActive:
+          Date.now() - new Date(latestReading.timestamp).getTime() < 300000, // 5 minutes
+      },
     });
-
   } catch (error) {
-    console.error('Current heart rate error:', error);
+    console.error("Current heart rate error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error obteniendo frecuencia cardíaca actual' });
+    throw new HTTPException(500, {
+      message: "Error obteniendo frecuencia cardíaca actual",
+    });
   }
 });
 
 /**
  * Update user health profile
  */
-health.put('/profile', async (c) => {
+health.put("/profile", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
-    const profileData = await c.req.json() as {
+    const profileData = (await c.req.json()) as {
       age?: number;
       weight?: number; // kg
       height?: number; // cm
-      gender?: 'male' | 'female' | 'other';
-      activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+      gender?: "male" | "female" | "other";
+      activityLevel?:
+        | "sedentary"
+        | "light"
+        | "moderate"
+        | "active"
+        | "very_active";
       goals?: {
         dailySteps?: number;
         weeklyWorkouts?: number;
@@ -557,68 +621,85 @@ health.put('/profile', async (c) => {
 
     // Basic validation
     if (profileData.age && (profileData.age < 13 || profileData.age > 120)) {
-      throw new HTTPException(400, { message: 'Edad debe estar entre 13 y 120 años' });
+      throw new HTTPException(400, {
+        message: "Edad debe estar entre 13 y 120 años",
+      });
     }
 
-    if (profileData.weight && (profileData.weight < 30 || profileData.weight > 300)) {
-      throw new HTTPException(400, { message: 'Peso debe estar entre 30 y 300 kg' });
+    if (
+      profileData.weight &&
+      (profileData.weight < 30 || profileData.weight > 300)
+    ) {
+      throw new HTTPException(400, {
+        message: "Peso debe estar entre 30 y 300 kg",
+      });
     }
 
-    if (profileData.height && (profileData.height < 100 || profileData.height > 250)) {
-      throw new HTTPException(400, { message: 'Altura debe estar entre 100 y 250 cm' });
+    if (
+      profileData.height &&
+      (profileData.height < 100 || profileData.height > 250)
+    ) {
+      throw new HTTPException(400, {
+        message: "Altura debe estar entre 100 y 250 cm",
+      });
     }
 
     const healthProfile = {
       userId: user.id,
       ...profileData,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
-    console.log('Updating health profile:', healthProfile);
+    console.log("Updating health profile:", healthProfile);
 
     return c.json({
       success: true,
       data: healthProfile,
-      message: 'Perfil de salud actualizado'
+      message: "Perfil de salud actualizado",
     });
-
   } catch (error) {
-    console.error('Health profile update error:', error);
+    console.error("Health profile update error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error actualizando perfil de salud' });
+    throw new HTTPException(500, {
+      message: "Error actualizando perfil de salud",
+    });
   }
 });
 
 // Helper functions
 function determineHeartRateZone(heartRate: number): string {
-  if (heartRate < 100) return 'rest';
-  if (heartRate < 120) return 'warmup';
-  if (heartRate < 140) return 'fat_burn';
-  if (heartRate < 160) return 'aerobic';
-  if (heartRate < 180) return 'anaerobic';
-  return 'maximum';
+  if (heartRate < 100) return "rest";
+  if (heartRate < 120) return "warmup";
+  if (heartRate < 140) return "fat_burn";
+  if (heartRate < 160) return "aerobic";
+  if (heartRate < 180) return "anaerobic";
+  return "maximum";
 }
 
-function calculateTimeInZones(readings: Array<{ value: number; timestamp: string }>): Record<string, number> {
+function calculateTimeInZones(
+  readings: Array<{ value: number; timestamp: string }>
+): Record<string, number> {
   const zones = {
     rest: 0,
     warmup: 0,
     fat_burn: 0,
     aerobic: 0,
     anaerobic: 0,
-    maximum: 0
+    maximum: 0,
   };
 
-  readings.forEach(reading => {
+  readings.forEach((reading) => {
     const zone = determineHeartRateZone(reading.value);
     zones[zone as keyof typeof zones] += 1;
   });
 
   // Convert counts to minutes (assuming readings every 5 seconds)
-  Object.keys(zones).forEach(zone => {
-    zones[zone as keyof typeof zones] = Math.round((zones[zone as keyof typeof zones] * 5) / 60);
+  Object.keys(zones).forEach((zone) => {
+    zones[zone as keyof typeof zones] = Math.round(
+      (zones[zone as keyof typeof zones] * 5) / 60
+    );
   });
 
   return zones;
@@ -628,62 +709,64 @@ function calculateTimeInZones(readings: Array<{ value: number; timestamp: string
  * Get health-based workout recommendations
  * GET /api/v1/health/workout-recommendations
  */
-health.get('/workout-recommendations', async (c) => {
+health.get("/workout-recommendations", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     const healthService = new HealthDataService(sql);
-    
+
     // Import HealthAI service dynamically to avoid circular deps
-    const { HealthAIService } = await import('../lib/health-ai-service');
-    const { AIService } = await import('../lib/ai-service');
-    
-    const aiService = new AIService(c.env.OPENAI_API_KEY || '');
+    const { HealthAIService } = await import("../lib/health-ai-service");
+    const { AIService } = await import("../lib/ai-service");
+
+    const aiService = new AIService(c.env.OPENAI_API_KEY || "");
     const healthAIService = new HealthAIService(sql, aiService, healthService);
 
     // Check if user should skip workout
     const skipCheck = await healthAIService.shouldSkipWorkout(dbUser.id);
-    
+
     if (skipCheck.shouldSkip) {
       return c.json({
         success: true,
         data: {
-          recommendation: 'rest',
+          recommendation: "rest",
           shouldSkip: true,
           reason: skipCheck.reason,
-          alternatives: skipCheck.alternatives
-        }
+          alternatives: skipCheck.alternatives,
+        },
       });
     }
 
     // Get comprehensive recommendations
-    const recommendations = await healthAIService.generateHealthBasedRecommendations(dbUser.id);
+    const recommendations =
+      await healthAIService.generateHealthBasedRecommendations(dbUser.id);
 
     return c.json({
       success: true,
       data: {
-        recommendation: 'workout',
+        recommendation: "workout",
         shouldSkip: false,
         healthBasedAdjustments: recommendations,
-        generatedAt: new Date().toISOString()
-      }
+        generatedAt: new Date().toISOString(),
+      },
     });
-
   } catch (error) {
-    console.error('Health workout recommendations error:', error);
+    console.error("Health workout recommendations error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error obteniendo recomendaciones de entrenamiento' });
+    throw new HTTPException(500, {
+      message: "Error obteniendo recomendaciones de entrenamiento",
+    });
   }
 });
 
@@ -691,51 +774,58 @@ health.get('/workout-recommendations', async (c) => {
  * Personalize a specific workout based on health data
  * POST /api/v1/health/personalize-workout
  */
-health.post('/personalize-workout', async (c) => {
+health.post("/personalize-workout", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const { workout } = await c.req.json();
-    
+
     if (!workout) {
-      throw new HTTPException(400, { message: 'Datos de entrenamiento requeridos' });
+      throw new HTTPException(400, {
+        message: "Datos de entrenamiento requeridos",
+      });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     const healthService = new HealthDataService(sql);
-    
+
     // Import HealthAI service dynamically
-    const { HealthAIService } = await import('../lib/health-ai-service');
-    const { AIService } = await import('../lib/ai-service');
-    
-    const aiService = new AIService(c.env.OPENAI_API_KEY || '');
+    const { HealthAIService } = await import("../lib/health-ai-service");
+    const { AIService } = await import("../lib/ai-service");
+
+    const aiService = new AIService(c.env.OPENAI_API_KEY || "");
     const healthAIService = new HealthAIService(sql, aiService, healthService);
 
-    const personalizedWorkout = await healthAIService.personalizeWorkout(dbUser.id, workout);
+    const personalizedWorkout = await healthAIService.personalizeWorkout(
+      dbUser.id,
+      workout
+    );
 
     return c.json({
       success: true,
       data: {
         originalWorkout: workout,
         personalizedParameters: personalizedWorkout,
-        adjustmentReason: 'Based on your recent health metrics and recovery data'
-      }
+        adjustmentReason:
+          "Based on your recent health metrics and recovery data",
+      },
     });
-
   } catch (error) {
-    console.error('Personalize workout error:', error);
+    console.error("Personalize workout error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error personalizando entrenamiento' });
+    throw new HTTPException(500, {
+      message: "Error personalizando entrenamiento",
+    });
   }
 });
 
@@ -743,32 +833,37 @@ health.post('/personalize-workout', async (c) => {
  * Real-time workout monitoring
  * POST /api/v1/health/monitor-workout
  */
-health.post('/monitor-workout', async (c) => {
+health.post("/monitor-workout", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const { heartRate, workoutDurationMinutes } = await c.req.json();
-    
-    if (typeof heartRate !== 'number' || typeof workoutDurationMinutes !== 'number') {
-      throw new HTTPException(400, { message: 'heartRate y workoutDurationMinutes son requeridos' });
+
+    if (
+      typeof heartRate !== "number" ||
+      typeof workoutDurationMinutes !== "number"
+    ) {
+      throw new HTTPException(400, {
+        message: "heartRate y workoutDurationMinutes son requeridos",
+      });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     const healthService = new HealthDataService(sql);
-    
+
     // Import HealthAI service dynamically
-    const { HealthAIService } = await import('../lib/health-ai-service');
-    const { AIService } = await import('../lib/ai-service');
-    
-    const aiService = new AIService(c.env.OPENAI_API_KEY || '');
+    const { HealthAIService } = await import("../lib/health-ai-service");
+    const { AIService } = await import("../lib/ai-service");
+
+    const aiService = new AIService(c.env.OPENAI_API_KEY || "");
     const healthAIService = new HealthAIService(sql, aiService, healthService);
 
     const monitoring = await healthAIService.monitorWorkoutRealTime(
@@ -784,22 +879,23 @@ health.post('/monitor-workout', async (c) => {
         heartRate,
         workoutDurationMinutes,
         timestamp: new Date().toISOString(),
-        status: monitoring.heartRateStatus
+        status: monitoring.heartRateStatus,
       }),
       { expirationTtl: 7200 } // 2 hours
     );
 
     return c.json({
       success: true,
-      data: monitoring
+      data: monitoring,
     });
-
   } catch (error) {
-    console.error('Workout monitoring error:', error);
+    console.error("Workout monitoring error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error monitoreando entrenamiento' });
+    throw new HTTPException(500, {
+      message: "Error monitoreando entrenamiento",
+    });
   }
 });
 
@@ -807,21 +903,21 @@ health.post('/monitor-workout', async (c) => {
  * Get sleep data analysis
  * GET /api/v1/health/sleep
  */
-health.get('/sleep', async (c) => {
+health.get("/sleep", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     // Parse query parameters
-    const daysParam = c.req.query('days');
+    const daysParam = c.req.query("days");
     const days = daysParam ? parseInt(daysParam) : 14; // Default 2 weeks
 
     const startDate = new Date();
@@ -829,29 +925,43 @@ health.get('/sleep', async (c) => {
     const endDate = new Date();
 
     const healthService = new HealthDataService(sql);
-    const sleepData = await healthService.getSleepData(dbUser.id, startDate, endDate);
+    const sleepData = await healthService.getSleepData(
+      dbUser.id,
+      startDate,
+      endDate
+    );
 
     // Calculate sleep statistics
     const totalNights = sleepData.length;
-    const avgSleepHours = totalNights > 0 ? 
-      sleepData.reduce((sum, s) => sum + s.totalSleepMinutes, 0) / totalNights / 60 : 0;
-    
+    const avgSleepHours =
+      totalNights > 0
+        ? sleepData.reduce((sum, s) => sum + s.totalSleepMinutes, 0) /
+          totalNights /
+          60
+        : 0;
+
     const avgSleepEfficiency = sleepData
-      .filter(s => s.sleepEfficiency)
-      .reduce((sum, s, _, arr) => sum + (s.sleepEfficiency || 0) / arr.length, 0);
+      .filter((s) => s.sleepEfficiency)
+      .reduce(
+        (sum, s, _, arr) => sum + (s.sleepEfficiency || 0) / arr.length,
+        0
+      );
 
     const avgDeepSleep = sleepData
-      .filter(s => s.deepSleepMinutes)
-      .reduce((sum, s, _, arr) => sum + (s.deepSleepMinutes || 0) / arr.length, 0);
+      .filter((s) => s.deepSleepMinutes)
+      .reduce(
+        (sum, s, _, arr) => sum + (s.deepSleepMinutes || 0) / arr.length,
+        0
+      );
 
     // Sleep quality assessment
-    let sleepQuality = 'good';
+    let sleepQuality = "good";
     if (avgSleepEfficiency < 70 || avgSleepHours < 6) {
-      sleepQuality = 'poor';
+      sleepQuality = "poor";
     } else if (avgSleepEfficiency < 85 || avgSleepHours < 7) {
-      sleepQuality = 'fair';
+      sleepQuality = "fair";
     } else if (avgSleepEfficiency > 90 && avgSleepHours > 7.5) {
-      sleepQuality = 'excellent';
+      sleepQuality = "excellent";
     }
 
     return c.json({
@@ -863,23 +973,27 @@ health.get('/sleep', async (c) => {
           avgSleepHours: Math.round(avgSleepHours * 10) / 10,
           avgSleepEfficiency: Math.round(avgSleepEfficiency * 10) / 10,
           avgDeepSleepMinutes: Math.round(avgDeepSleep),
-          sleepQuality
+          sleepQuality,
         },
-        recommendations: generateSleepRecommendations(avgSleepHours, avgSleepEfficiency),
+        recommendations: generateSleepRecommendations(
+          avgSleepHours,
+          avgSleepEfficiency
+        ),
         period: {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
-          days
-        }
-      }
+          days,
+        },
+      },
     });
-
   } catch (error) {
-    console.error('Get sleep data error:', error);
+    console.error("Get sleep data error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error obteniendo datos de sueño' });
+    throw new HTTPException(500, {
+      message: "Error obteniendo datos de sueño",
+    });
   }
 });
 
@@ -887,45 +1001,55 @@ health.get('/sleep', async (c) => {
  * Get HRV (Heart Rate Variability) analysis
  * GET /api/v1/health/hrv
  */
-health.get('/hrv', async (c) => {
+health.get("/hrv", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
-    const daysParam = c.req.query('days');
+    const daysParam = c.req.query("days");
     const days = daysParam ? parseInt(daysParam) : 14; // Default 2 weeks
 
     const healthService = new HealthDataService(sql);
     const hrvData = await healthService.getLatestHRVData(dbUser.id, days);
 
     // Calculate HRV statistics
-    const avgRMSSD = hrvData.length > 0 ? 
-      hrvData.reduce((sum, hrv) => sum + hrv.rmssdMs, 0) / hrvData.length : 0;
-    
-    const avgRecoveryScore = hrvData.length > 0 ?
-      hrvData.reduce((sum, hrv) => sum + hrv.recoveryScore, 0) / hrvData.length : 0;
+    const avgRMSSD =
+      hrvData.length > 0
+        ? hrvData.reduce((sum, hrv) => sum + hrv.rmssdMs, 0) / hrvData.length
+        : 0;
 
-    const avgStressScore = hrvData.length > 0 ?
-      hrvData.reduce((sum, hrv) => sum + hrv.stressScore, 0) / hrvData.length : 0;
+    const avgRecoveryScore =
+      hrvData.length > 0
+        ? hrvData.reduce((sum, hrv) => sum + hrv.recoveryScore, 0) /
+          hrvData.length
+        : 0;
+
+    const avgStressScore =
+      hrvData.length > 0
+        ? hrvData.reduce((sum, hrv) => sum + hrv.stressScore, 0) /
+          hrvData.length
+        : 0;
 
     // HRV trend analysis
-    let trend = 'stable';
+    let trend = "stable";
     if (hrvData.length >= 7) {
       const recent = hrvData.slice(0, 3);
       const older = hrvData.slice(-3);
-      const recentAvg = recent.reduce((sum, h) => sum + h.recoveryScore, 0) / recent.length;
-      const olderAvg = older.reduce((sum, h) => sum + h.recoveryScore, 0) / older.length;
-      
-      if (recentAvg > olderAvg + 5) trend = 'improving';
-      else if (recentAvg < olderAvg - 5) trend = 'declining';
+      const recentAvg =
+        recent.reduce((sum, h) => sum + h.recoveryScore, 0) / recent.length;
+      const olderAvg =
+        older.reduce((sum, h) => sum + h.recoveryScore, 0) / older.length;
+
+      if (recentAvg > olderAvg + 5) trend = "improving";
+      else if (recentAvg < olderAvg - 5) trend = "declining";
     }
 
     return c.json({
@@ -937,23 +1061,24 @@ health.get('/hrv', async (c) => {
           avgRMSSD: Math.round(avgRMSSD * 10) / 10,
           avgRecoveryScore: Math.round(avgRecoveryScore),
           avgStressScore: Math.round(avgStressScore),
-          trend
+          trend,
         },
         insights: generateHRVInsights(avgRecoveryScore, avgStressScore, trend),
         period: {
           days,
-          startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(),
-          endDate: new Date().toISOString()
-        }
-      }
+          startDate: new Date(
+            Date.now() - days * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          endDate: new Date().toISOString(),
+        },
+      },
     });
-
   } catch (error) {
-    console.error('Get HRV data error:', error);
+    console.error("Get HRV data error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error obteniendo datos de HRV' });
+    throw new HTTPException(500, { message: "Error obteniendo datos de HRV" });
   }
 });
 
@@ -961,11 +1086,11 @@ health.get('/hrv', async (c) => {
  * Enable or disable health sync for user
  * POST /api/v1/health/settings
  */
-health.post('/settings', async (c) => {
+health.post("/settings", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const { healthSyncEnabled, permissions } = await c.req.json();
@@ -973,7 +1098,7 @@ health.post('/settings', async (c) => {
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     // Update user profile health settings
@@ -988,17 +1113,18 @@ health.post('/settings', async (c) => {
 
     return c.json({
       success: true,
-      message: healthSyncEnabled ? 
-        'Sincronización de salud activada' : 
-        'Sincronización de salud desactivada'
+      message: healthSyncEnabled
+        ? "Sincronización de salud activada"
+        : "Sincronización de salud desactivada",
     });
-
   } catch (error) {
-    console.error('Update health settings error:', error);
+    console.error("Update health settings error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error actualizando configuración de salud' });
+    throw new HTTPException(500, {
+      message: "Error actualizando configuración de salud",
+    });
   }
 });
 
@@ -1006,39 +1132,46 @@ health.post('/settings', async (c) => {
  * Get HealthKit status and permissions
  * GET /api/v1/health/healthkit/status
  */
-health.get('/healthkit/status', async (c) => {
+health.get("/healthkit/status", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     const healthKitService = new HealthKitService(sql);
-    const healthProfile = await healthKitService.getUserHealthProfile(dbUser.id);
+    const healthProfile = await healthKitService.getUserHealthProfile(
+      dbUser.id
+    );
 
     return c.json({
       success: true,
       data: {
         healthkitEnabled: healthProfile?.healthkitEnabled || false,
         appleWatchConnected: healthProfile?.appleWatchConnected || false,
-        permissions: healthProfile?.healthkitPermissions || { read: [], write: [], share: [] },
+        permissions: healthProfile?.healthkitPermissions || {
+          read: [],
+          write: [],
+          share: [],
+        },
         lastSyncAt: healthProfile?.lastSyncAt,
-        syncFrequency: healthProfile?.syncFrequency || 'real_time'
-      }
+        syncFrequency: healthProfile?.syncFrequency || "real_time",
+      },
     });
-
   } catch (error) {
-    console.error('HealthKit status error:', error);
+    console.error("HealthKit status error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error obteniendo estado de HealthKit' });
+    throw new HTTPException(500, {
+      message: "Error obteniendo estado de HealthKit",
+    });
   }
 });
 
@@ -1046,40 +1179,44 @@ health.get('/healthkit/status', async (c) => {
  * Update HealthKit permissions
  * POST /api/v1/health/healthkit/permissions
  */
-health.post('/healthkit/permissions', async (c) => {
+health.post("/healthkit/permissions", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const permissionRequest: HealthKitPermissionRequest = await c.req.json();
-    
+
     if (!permissionRequest.permissions) {
-      throw new HTTPException(400, { message: 'Permisos requeridos' });
+      throw new HTTPException(400, { message: "Permisos requeridos" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     const healthKitService = new HealthKitService(sql);
-    const updatedProfile = await healthKitService.updateHealthKitPermissions(dbUser.id, permissionRequest);
+    const updatedProfile = await healthKitService.updateHealthKitPermissions(
+      dbUser.id,
+      permissionRequest
+    );
 
     return c.json({
       success: true,
       data: updatedProfile,
-      message: 'Permisos de HealthKit actualizados'
+      message: "Permisos de HealthKit actualizados",
     });
-
   } catch (error) {
-    console.error('Update HealthKit permissions error:', error);
+    console.error("Update HealthKit permissions error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error actualizando permisos de HealthKit' });
+    throw new HTTPException(500, {
+      message: "Error actualizando permisos de HealthKit",
+    });
   }
 });
 
@@ -1087,50 +1224,60 @@ health.post('/healthkit/permissions', async (c) => {
  * Sync Apple Watch workout
  * POST /api/v1/health/apple-watch/sync-workout
  */
-health.post('/apple-watch/sync-workout', async (c) => {
+health.post("/apple-watch/sync-workout", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const workoutData = await c.req.json();
-    
-    if (!workoutData.healthkitUuid || !workoutData.workoutType || !workoutData.startTime || !workoutData.endTime) {
-      throw new HTTPException(400, { 
-        message: 'healthkitUuid, workoutType, startTime y endTime son requeridos' 
+
+    if (
+      !workoutData.healthkitUuid ||
+      !workoutData.workoutType ||
+      !workoutData.startTime ||
+      !workoutData.endTime
+    ) {
+      throw new HTTPException(400, {
+        message:
+          "healthkitUuid, workoutType, startTime y endTime son requeridos",
       });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     const healthKitService = new HealthKitService(sql);
-    
+
     // Convert string dates to Date objects
     const syncData = {
       ...workoutData,
       startTime: new Date(workoutData.startTime),
-      endTime: new Date(workoutData.endTime)
+      endTime: new Date(workoutData.endTime),
     };
 
-    const syncedWorkout = await healthKitService.syncAppleWatchWorkout(dbUser.id, syncData);
+    const syncedWorkout = await healthKitService.syncAppleWatchWorkout(
+      dbUser.id,
+      syncData
+    );
 
     return c.json({
       success: true,
       data: syncedWorkout,
-      message: 'Entrenamiento de Apple Watch sincronizado'
+      message: "Entrenamiento de Apple Watch sincronizado",
     });
-
   } catch (error) {
-    console.error('Apple Watch workout sync error:', error);
+    console.error("Apple Watch workout sync error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error sincronizando entrenamiento de Apple Watch' });
+    throw new HTTPException(500, {
+      message: "Error sincronizando entrenamiento de Apple Watch",
+    });
   }
 });
 
@@ -1138,42 +1285,50 @@ health.post('/apple-watch/sync-workout', async (c) => {
  * Add health metric data point
  * POST /api/v1/health/metrics/add
  */
-health.post('/metrics/add', async (c) => {
+health.post("/metrics/add", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const metricRequest: AddHealthMetricRequest = await c.req.json();
-    
-    if (!metricRequest.metricType || !metricRequest.metricValue || !metricRequest.metricUnit) {
-      throw new HTTPException(400, { 
-        message: 'metricType, metricValue y metricUnit son requeridos' 
+
+    if (
+      !metricRequest.metricType ||
+      !metricRequest.metricValue ||
+      !metricRequest.metricUnit
+    ) {
+      throw new HTTPException(400, {
+        message: "metricType, metricValue y metricUnit son requeridos",
       });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     const healthKitService = new HealthKitService(sql);
-    const healthMetric = await healthKitService.addHealthMetric(dbUser.id, metricRequest);
+    const healthMetric = await healthKitService.addHealthMetric(
+      dbUser.id,
+      metricRequest
+    );
 
     return c.json({
       success: true,
       data: healthMetric,
-      message: 'Métrica de salud agregada'
+      message: "Métrica de salud agregada",
     });
-
   } catch (error) {
-    console.error('Add health metric error:', error);
+    console.error("Add health metric error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error agregando métrica de salud' });
+    throw new HTTPException(500, {
+      message: "Error agregando métrica de salud",
+    });
   }
 });
 
@@ -1181,45 +1336,51 @@ health.post('/metrics/add', async (c) => {
  * Get comprehensive health dashboard
  * GET /api/v1/health/dashboard/comprehensive
  */
-health.get('/dashboard/comprehensive', async (c) => {
+health.get("/dashboard/comprehensive", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     // Parse query parameters
-    const period = (c.req.query('period') as 'week' | 'month' | 'quarter' | 'year') || 'month';
-    const includeInsights = c.req.query('includeInsights') === 'true';
-    const includeGoals = c.req.query('includeGoals') === 'true';
+    const period =
+      (c.req.query("period") as "week" | "month" | "quarter" | "year") ||
+      "month";
+    const includeInsights = c.req.query("includeInsights") === "true";
+    const includeGoals = c.req.query("includeGoals") === "true";
 
     const query: HealthDashboardQuery = {
       period,
       includeInsights,
-      includeGoals
+      includeGoals,
     };
 
     const healthKitService = new HealthKitService(sql);
-    const dashboard = await healthKitService.generateHealthDashboard(dbUser.id, query);
+    const dashboard = await healthKitService.generateHealthDashboard(
+      dbUser.id,
+      query
+    );
 
     return c.json({
       success: true,
       data: dashboard,
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
     });
-
   } catch (error) {
-    console.error('Health dashboard error:', error);
+    console.error("Health dashboard error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error generando dashboard de salud' });
+    throw new HTTPException(500, {
+      message: "Error generando dashboard de salud",
+    });
   }
 });
 
@@ -1227,37 +1388,47 @@ health.get('/dashboard/comprehensive', async (c) => {
  * Get heart rate analysis
  * GET /api/v1/health/heart-rate/analysis
  */
-health.get('/heart-rate/analysis', async (c) => {
+health.get("/heart-rate/analysis", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     // Parse query parameters
-    const startDateParam = c.req.query('startDate');
-    const endDateParam = c.req.query('endDate');
-    const context = c.req.query('context') as 'resting' | 'active' | 'workout' | 'recovery' | undefined;
+    const startDateParam = c.req.query("startDate");
+    const endDateParam = c.req.query("endDate");
+    const context = c.req.query("context") as
+      | "resting"
+      | "active"
+      | "workout"
+      | "recovery"
+      | undefined;
 
     if (!startDateParam || !endDateParam) {
-      throw new HTTPException(400, { message: 'startDate y endDate son requeridos' });
+      throw new HTTPException(400, {
+        message: "startDate y endDate son requeridos",
+      });
     }
 
     const query: HeartRateAnalysisQuery = {
       startDate: new Date(startDateParam),
       endDate: new Date(endDateParam),
       context,
-      includeWorkouts: c.req.query('includeWorkouts') === 'true'
+      includeWorkouts: c.req.query("includeWorkouts") === "true",
     };
 
     const healthKitService = new HealthKitService(sql);
-    const analysis = await healthKitService.getHeartRateAnalysis(dbUser.id, query);
+    const analysis = await healthKitService.getHeartRateAnalysis(
+      dbUser.id,
+      query
+    );
 
     return c.json({
       success: true,
@@ -1265,16 +1436,17 @@ health.get('/heart-rate/analysis', async (c) => {
       period: {
         startDate: query.startDate.toISOString(),
         endDate: query.endDate.toISOString(),
-        context: query.context || 'all'
-      }
+        context: query.context || "all",
+      },
     });
-
   } catch (error) {
-    console.error('Heart rate analysis error:', error);
+    console.error("Heart rate analysis error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error analizando frecuencia cardíaca' });
+    throw new HTTPException(500, {
+      message: "Error analizando frecuencia cardíaca",
+    });
   }
 });
 
@@ -1282,11 +1454,11 @@ health.get('/heart-rate/analysis', async (c) => {
  * Update health profile
  * PUT /api/v1/health/profile/healthkit
  */
-health.put('/profile/healthkit', async (c) => {
+health.put("/profile/healthkit", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const updateRequest: UpdateHealthProfileRequest = await c.req.json();
@@ -1294,70 +1466,87 @@ health.put('/profile/healthkit', async (c) => {
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, user.userId || user.id);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'Usuario no encontrado' });
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
     }
 
     const healthKitService = new HealthKitService(sql);
-    const updatedProfile = await healthKitService.updateHealthProfile(dbUser.id, updateRequest);
+    const updatedProfile = await healthKitService.updateHealthProfile(
+      dbUser.id,
+      updateRequest
+    );
 
     return c.json({
       success: true,
       data: updatedProfile,
-      message: 'Perfil de salud actualizado'
+      message: "Perfil de salud actualizado",
     });
-
   } catch (error) {
-    console.error('Update health profile error:', error);
+    console.error("Update health profile error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error actualizando perfil de salud' });
+    throw new HTTPException(500, {
+      message: "Error actualizando perfil de salud",
+    });
   }
 });
 
 // Helper method to generate sleep recommendations
-function generateSleepRecommendations(avgHours: number, avgEfficiency: number): string[] {
+function generateSleepRecommendations(
+  avgHours: number,
+  avgEfficiency: number
+): string[] {
   const recommendations: string[] = [];
-  
+
   if (avgHours < 7) {
-    recommendations.push('Intenta dormir al menos 7-9 horas por noche');
-    recommendations.push('Establece una rutina de sueño consistente');
+    recommendations.push("Intenta dormir al menos 7-9 horas por noche");
+    recommendations.push("Establece una rutina de sueño consistente");
   }
-  
+
   if (avgEfficiency < 80) {
-    recommendations.push('Mejora tu higiene del sueño - evita pantallas 1 hora antes de dormir');
-    recommendations.push('Considera un ambiente más fresco y oscuro');
-    recommendations.push('Evita cafeína después de las 2 PM');
+    recommendations.push(
+      "Mejora tu higiene del sueño - evita pantallas 1 hora antes de dormir"
+    );
+    recommendations.push("Considera un ambiente más fresco y oscuro");
+    recommendations.push("Evita cafeína después de las 2 PM");
   }
-  
+
   if (avgHours < 6) {
-    recommendations.push('⚠️ Sueño críticamente bajo - consulta con un profesional de la salud');
+    recommendations.push(
+      "⚠️ Sueño críticamente bajo - consulta con un profesional de la salud"
+    );
   }
-  
+
   return recommendations;
 }
 
 // Helper method to generate HRV insights
-function generateHRVInsights(avgRecovery: number, avgStress: number, trend: string): string[] {
+function generateHRVInsights(
+  avgRecovery: number,
+  avgStress: number,
+  trend: string
+): string[] {
   const insights: string[] = [];
-  
+
   if (avgRecovery > 70) {
-    insights.push('✅ Excelente capacidad de recuperación');
+    insights.push("✅ Excelente capacidad de recuperación");
   } else if (avgRecovery < 40) {
-    insights.push('⚠️ Capacidad de recuperación baja - prioriza el descanso');
+    insights.push("⚠️ Capacidad de recuperación baja - prioriza el descanso");
   }
-  
+
   if (avgStress > 70) {
-    insights.push('🔴 Niveles de estrés elevados detectados');
-    insights.push('Considera técnicas de relajación y manejo del estrés');
+    insights.push("🔴 Niveles de estrés elevados detectados");
+    insights.push("Considera técnicas de relajación y manejo del estrés");
   }
-  
-  if (trend === 'improving') {
-    insights.push('📈 Tu HRV está mejorando - mantén tus hábitos actuales');
-  } else if (trend === 'declining') {
-    insights.push('📉 Tu HRV está declinando - revisa tu entrenamiento y recuperación');
+
+  if (trend === "improving") {
+    insights.push("📈 Tu HRV está mejorando - mantén tus hábitos actuales");
+  } else if (trend === "declining") {
+    insights.push(
+      "📉 Tu HRV está declinando - revisa tu entrenamiento y recuperación"
+    );
   }
-  
+
   return insights;
 }
 

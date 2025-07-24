@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Button } from '../ui';
-import { ArrowLeft, ExternalLink, Github, Search } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Github, Search } from "lucide-react";
+import type React from "react";
+import { Button } from "../ui";
 
 interface DocsHeaderProps {
   title?: string;
@@ -10,10 +10,10 @@ interface DocsHeaderProps {
   showBackButton?: boolean;
 }
 
-export const DocsHeader: React.FC<DocsHeaderProps> = ({ 
+export const DocsHeader: React.FC<DocsHeaderProps> = ({
   title = "Documentación FitAI",
   description = "Guías completas, referencias API y recursos para dominar FitAI",
-  showBackButton = false
+  showBackButton = false,
 }) => {
   return (
     <header className="sticky top-0 z-20 glass-effect border-b border-gray-700/50 bg-gray-900/80 backdrop-blur-md">
@@ -31,7 +31,7 @@ export const DocsHeader: React.FC<DocsHeaderProps> = ({
                 Volver
               </Button>
             )}
-            
+
             <div>
               <h1 className="text-2xl font-bold text-white">{title}</h1>
               <p className="text-gray-400 text-sm mt-1">{description}</p>
@@ -55,16 +55,16 @@ export const DocsHeader: React.FC<DocsHeaderProps> = ({
               variant="ghost"
               size="sm"
               leftIcon={<ExternalLink className="w-4 h-4" />}
-              onClick={() => window.open('/', '_blank')}
+              onClick={() => window.open("/", "_blank")}
             >
               Landing
             </Button>
-            
+
             <Button
               variant="ghost"
               size="sm"
               leftIcon={<Github className="w-4 h-4" />}
-              onClick={() => window.open('https://github.com/fitai', '_blank')}
+              onClick={() => window.open("https://github.com/fitai", "_blank")}
             >
               GitHub
             </Button>

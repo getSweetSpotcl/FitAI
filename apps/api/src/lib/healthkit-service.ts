@@ -1,25 +1,19 @@
-import { DatabaseClient } from '../db/database';
+import type { DatabaseClient } from "../db/database";
 import type {
-  UserHealthProfile,
-  HealthMetric,
-  HeartRateData,
-  AppleWatchWorkout,
-  DailyActivitySummary,
-  HealthInsight,
-  HealthKitSyncLog,
-  UpdateHealthProfileRequest,
-  HealthKitPermissionRequest,
-  SyncHealthKitDataRequest,
   AddHealthMetricRequest,
+  AppleWatchWorkout,
+  GoalProgress,
   HealthDashboardQuery,
   HealthDashboardResponse,
+  HealthInsight,
+  HealthKitPermissionRequest,
+  HealthMetric,
   HeartRateAnalysisQuery,
+  HeartRateData,
   TrendData,
-  GoalProgress,
-  HealthKitDataType,
-  SyncConflict,
-  RecommendedAction
-} from '../types/health';
+  UpdateHealthProfileRequest,
+  UserHealthProfile,
+} from "../types/health";
 
 export class HealthKitService {
   constructor(private sql: DatabaseClient) {}
@@ -29,7 +23,9 @@ export class HealthKitService {
   /**
    * Get or create user health profile
    */
-  async getUserHealthProfile(userId: string): Promise<UserHealthProfile | null> {
+  async getUserHealthProfile(
+    userId: string
+  ): Promise<UserHealthProfile | null> {
     try {
       const result = await this.sql`
         SELECT * FROM user_health_profiles
@@ -43,21 +39,26 @@ export class HealthKitService {
 
       return this.mapHealthProfile((result as any[])[0]);
     } catch (error) {
-      console.error('Get health profile error:', error);
-      throw new Error('Failed to get health profile');
+      console.error("Get health profile error:", error);
+      throw new Error("Failed to get health profile");
     }
   }
 
   /**
    * Update user health profile
    */
-  async updateHealthProfile(userId: string, updates: UpdateHealthProfileRequest): Promise<UserHealthProfile> {
+  async updateHealthProfile(
+    userId: string,
+    updates: UpdateHealthProfileRequest
+  ): Promise<UserHealthProfile> {
     try {
       // Build update parts with proper escaping
       const updateParts: string[] = [];
-      
+
       if (updates.birthDate) {
-        updateParts.push(`birth_date = '${updates.birthDate.toISOString().split('T')[0]}'`);
+        updateParts.push(
+          `birth_date = '${updates.birthDate.toISOString().split("T")[0]}'`
+        );
       }
       if (updates.biologicalSex) {
         updateParts.push(`biological_sex = '${updates.biologicalSex}'`);
@@ -86,24 +87,24 @@ export class HealthKitService {
       if (updates.syncFrequency) {
         updateParts.push(`sync_frequency = '${updates.syncFrequency}'`);
       }
-      
+
       if (updateParts.length === 0) {
-        throw new Error('No updates provided');
+        throw new Error("No updates provided");
       }
-      
-      updateParts.push('updated_at = NOW()');
-      
+
+      updateParts.push("updated_at = NOW()");
+
       const result = await this.sql.unsafe(`
         UPDATE user_health_profiles 
-        SET ${updateParts.join(', ')}
+        SET ${updateParts.join(", ")}
         WHERE user_id = '${userId}'
         RETURNING *
       `);
 
-      return this.mapHealthProfile(((result as unknown) as any[])[0]);
+      return this.mapHealthProfile((result as unknown as any[])[0]);
     } catch (error) {
-      console.error('Update health profile error:', error);
-      throw new Error('Failed to update health profile');
+      console.error("Update health profile error:", error);
+      throw new Error("Failed to update health profile");
     }
   }
 
@@ -112,10 +113,15 @@ export class HealthKitService {
   /**
    * Update HealthKit permissions
    */
-  async updateHealthKitPermissions(userId: string, permissionRequest: HealthKitPermissionRequest): Promise<UserHealthProfile> {
+  async updateHealthKitPermissions(
+    userId: string,
+    permissionRequest: HealthKitPermissionRequest
+  ): Promise<UserHealthProfile> {
     try {
-      const permissionsJson = JSON.stringify(permissionRequest.permissions).replace(/'/g, "''");
-      
+      const permissionsJson = JSON.stringify(
+        permissionRequest.permissions
+      ).replace(/'/g, "''");
+
       const result = await this.sql.unsafe(`
         UPDATE user_health_profiles 
         SET 
@@ -126,17 +132,17 @@ export class HealthKitService {
         RETURNING *
       `);
 
-      if (((result as unknown) as any[]).length === 0) {
-        throw new Error('Health profile not found');
+      if ((result as unknown as any[]).length === 0) {
+        throw new Error("Health profile not found");
       }
 
       // Log permission change
-      await this.createSyncLog(userId, 'permission_update', 'completed', 1);
+      await this.createSyncLog(userId, "permission_update", "completed", 1);
 
-      return this.mapHealthProfile(((result as unknown) as any[])[0]);
+      return this.mapHealthProfile((result as unknown as any[])[0]);
     } catch (error) {
-      console.error('Update HealthKit permissions error:', error);
-      throw new Error('Failed to update HealthKit permissions');
+      console.error("Update HealthKit permissions error:", error);
+      throw new Error("Failed to update HealthKit permissions");
     }
   }
 
@@ -145,12 +151,19 @@ export class HealthKitService {
   /**
    * Add health metric data point
    */
-  async addHealthMetric(userId: string, metric: AddHealthMetricRequest): Promise<HealthMetric> {
+  async addHealthMetric(
+    userId: string,
+    metric: AddHealthMetricRequest
+  ): Promise<HealthMetric> {
     try {
       const recordedAt = metric.recordedAt || new Date();
-      const notes = metric.notes ? `'${metric.notes.replace(/'/g, "''")}'` : 'NULL';
-      const sourceDevice = metric.sourceDevice ? `'${metric.sourceDevice.replace(/'/g, "''")}'` : 'NULL';
-      
+      const notes = metric.notes
+        ? `'${metric.notes.replace(/'/g, "''")}'`
+        : "NULL";
+      const sourceDevice = metric.sourceDevice
+        ? `'${metric.sourceDevice.replace(/'/g, "''")}'`
+        : "NULL";
+
       const result = await this.sql.unsafe(`
         INSERT INTO health_metrics (
           user_id, metric_type, metric_value, metric_unit,
@@ -162,25 +175,29 @@ export class HealthKitService {
         RETURNING *
       `);
 
-      return this.mapHealthMetric(((result as unknown) as any[])[0]);
+      return this.mapHealthMetric((result as unknown as any[])[0]);
     } catch (error) {
-      console.error('Add health metric error:', error);
-      throw new Error('Failed to add health metric');
+      console.error("Add health metric error:", error);
+      throw new Error("Failed to add health metric");
     }
   }
 
   /**
    * Get health metrics for user
    */
-  async getHealthMetrics(userId: string, metricTypes?: string[], limit: number = 100): Promise<HealthMetric[]> {
+  async getHealthMetrics(
+    userId: string,
+    metricTypes?: string[],
+    limit: number = 100
+  ): Promise<HealthMetric[]> {
     try {
       let whereClause = `user_id = '${userId}'`;
-      
+
       if (metricTypes && metricTypes.length > 0) {
-        const typesFilter = metricTypes.map(type => `'${type}'`).join(',');
+        const typesFilter = metricTypes.map((type) => `'${type}'`).join(",");
         whereClause += ` AND metric_type IN (${typesFilter})`;
       }
-      
+
       const result = await this.sql.unsafe(`
         SELECT * FROM health_metrics
         WHERE ${whereClause}
@@ -188,10 +205,10 @@ export class HealthKitService {
         LIMIT ${limit}
       `);
 
-      return ((result as unknown) as any[]).map(this.mapHealthMetric);
+      return (result as unknown as any[]).map(this.mapHealthMetric);
     } catch (error) {
-      console.error('Get health metrics error:', error);
-      throw new Error('Failed to get health metrics');
+      console.error("Get health metrics error:", error);
+      throw new Error("Failed to get health metrics");
     }
   }
 
@@ -200,21 +217,30 @@ export class HealthKitService {
   /**
    * Add heart rate data
    */
-  async addHeartRateData(userId: string, heartRateData: {
-    heartRateBpm: number;
-    context?: string;
-    workoutSessionId?: string;
-    recordedAt?: Date;
-    dataSource?: string;
-    sourceDevice?: string;
-  }): Promise<HeartRateData> {
+  async addHeartRateData(
+    userId: string,
+    heartRateData: {
+      heartRateBpm: number;
+      context?: string;
+      workoutSessionId?: string;
+      recordedAt?: Date;
+      dataSource?: string;
+      sourceDevice?: string;
+    }
+  ): Promise<HeartRateData> {
     try {
       const recordedAt = heartRateData.recordedAt || new Date();
-      const context = heartRateData.context ? `'${heartRateData.context}'` : 'NULL';
-      const workoutSessionId = heartRateData.workoutSessionId ? `'${heartRateData.workoutSessionId}'` : 'NULL';
-      const dataSource = heartRateData.dataSource || 'manual';
-      const sourceDevice = heartRateData.sourceDevice ? `'${heartRateData.sourceDevice.replace(/'/g, "''")}'` : 'NULL';
-      
+      const context = heartRateData.context
+        ? `'${heartRateData.context}'`
+        : "NULL";
+      const workoutSessionId = heartRateData.workoutSessionId
+        ? `'${heartRateData.workoutSessionId}'`
+        : "NULL";
+      const dataSource = heartRateData.dataSource || "manual";
+      const sourceDevice = heartRateData.sourceDevice
+        ? `'${heartRateData.sourceDevice.replace(/'/g, "''")}'`
+        : "NULL";
+
       const result = await this.sql.unsafe(`
         INSERT INTO heart_rate_data (
           user_id, heart_rate_bpm, heart_rate_context, workout_session_id,
@@ -226,17 +252,20 @@ export class HealthKitService {
         RETURNING *
       `);
 
-      return this.mapHeartRateData(((result as unknown) as any[])[0]);
+      return this.mapHeartRateData((result as unknown as any[])[0]);
     } catch (error) {
-      console.error('Add heart rate data error:', error);
-      throw new Error('Failed to add heart rate data');
+      console.error("Add heart rate data error:", error);
+      throw new Error("Failed to add heart rate data");
     }
   }
 
   /**
    * Get heart rate analysis
    */
-  async getHeartRateAnalysis(userId: string, query: HeartRateAnalysisQuery): Promise<{
+  async getHeartRateAnalysis(
+    userId: string,
+    query: HeartRateAnalysisQuery
+  ): Promise<{
     avgHeartRate: number;
     maxHeartRate: number;
     minHeartRate: number;
@@ -246,12 +275,12 @@ export class HealthKitService {
     try {
       const startDate = query.startDate.toISOString();
       const endDate = query.endDate.toISOString();
-      let contextFilter = '';
-      
+      let contextFilter = "";
+
       if (query.context) {
         contextFilter = `AND heart_rate_context = '${query.context}'`;
       }
-      
+
       const result = await this.sql.unsafe(`
         SELECT 
           AVG(heart_rate_bpm) as avg_hr,
@@ -264,8 +293,8 @@ export class HealthKitService {
           ${contextFilter}
       `);
 
-      const stats = ((result as unknown) as any[])[0];
-      
+      const stats = (result as unknown as any[])[0];
+
       // Get trend data
       const trendResult = await this.sql.unsafe(`
         SELECT 
@@ -280,26 +309,26 @@ export class HealthKitService {
       `);
 
       const trendData: TrendData = {
-        metric: 'heart_rate',
-        period: `${query.startDate.toISOString().split('T')[0]} to ${query.endDate.toISOString().split('T')[0]}`,
-        dataPoints: ((trendResult as unknown) as any[]).map(row => ({
+        metric: "heart_rate",
+        period: `${query.startDate.toISOString().split("T")[0]} to ${query.endDate.toISOString().split("T")[0]}`,
+        dataPoints: (trendResult as unknown as any[]).map((row) => ({
           date: new Date(row.date),
           value: parseFloat(row.avg_hr),
-          change: 0 // TODO: Calculate change
+          change: 0, // TODO: Calculate change
         })),
-        trendDirection: 'stable', // TODO: Calculate trend direction
-        trendStrength: 0.5 // TODO: Calculate trend strength
+        trendDirection: "stable", // TODO: Calculate trend direction
+        trendStrength: 0.5, // TODO: Calculate trend strength
       };
 
       return {
         avgHeartRate: parseFloat(stats.avg_hr) || 0,
         maxHeartRate: parseInt(stats.max_hr) || 0,
         minHeartRate: parseInt(stats.min_hr) || 0,
-        trend: trendData
+        trend: trendData,
       };
     } catch (error) {
-      console.error('Get heart rate analysis error:', error);
-      throw new Error('Failed to get heart rate analysis');
+      console.error("Get heart rate analysis error:", error);
+      throw new Error("Failed to get heart rate analysis");
     }
   }
 
@@ -308,19 +337,22 @@ export class HealthKitService {
   /**
    * Sync Apple Watch workout data
    */
-  async syncAppleWatchWorkout(userId: string, workoutData: {
-    healthkitUuid: string;
-    workoutType: string;
-    startTime: Date;
-    endTime: Date;
-    totalEnergyBurned?: number;
-    activeEnergyBurned?: number;
-    totalDistance?: number;
-    avgHeartRate?: number;
-    maxHeartRate?: number;
-    sourceDevice?: string;
-    metadata?: Record<string, any>;
-  }): Promise<AppleWatchWorkout> {
+  async syncAppleWatchWorkout(
+    userId: string,
+    workoutData: {
+      healthkitUuid: string;
+      workoutType: string;
+      startTime: Date;
+      endTime: Date;
+      totalEnergyBurned?: number;
+      activeEnergyBurned?: number;
+      totalDistance?: number;
+      avgHeartRate?: number;
+      maxHeartRate?: number;
+      sourceDevice?: string;
+      metadata?: Record<string, any>;
+    }
+  ): Promise<AppleWatchWorkout> {
     try {
       // Check if workout already exists
       const existing = await this.sql`
@@ -329,18 +361,25 @@ export class HealthKitService {
       `;
 
       if ((existing as any[]).length > 0) {
-        throw new Error('Workout already synced');
+        throw new Error("Workout already synced");
       }
 
-      const durationSeconds = Math.floor((workoutData.endTime.getTime() - workoutData.startTime.getTime()) / 1000);
-      const totalEnergyBurned = workoutData.totalEnergyBurned || 'NULL';
-      const activeEnergyBurned = workoutData.activeEnergyBurned || 'NULL';
-      const totalDistance = workoutData.totalDistance || 'NULL';
-      const avgHeartRate = workoutData.avgHeartRate || 'NULL';
-      const maxHeartRate = workoutData.maxHeartRate || 'NULL';
-      const sourceDevice = workoutData.sourceDevice ? `'${workoutData.sourceDevice.replace(/'/g, "''")}'` : 'NULL';
-      const metadata = JSON.stringify(workoutData.metadata || {}).replace(/'/g, "''");
-      
+      const durationSeconds = Math.floor(
+        (workoutData.endTime.getTime() - workoutData.startTime.getTime()) / 1000
+      );
+      const totalEnergyBurned = workoutData.totalEnergyBurned || "NULL";
+      const activeEnergyBurned = workoutData.activeEnergyBurned || "NULL";
+      const totalDistance = workoutData.totalDistance || "NULL";
+      const avgHeartRate = workoutData.avgHeartRate || "NULL";
+      const maxHeartRate = workoutData.maxHeartRate || "NULL";
+      const sourceDevice = workoutData.sourceDevice
+        ? `'${workoutData.sourceDevice.replace(/'/g, "''")}'`
+        : "NULL";
+      const metadata = JSON.stringify(workoutData.metadata || {}).replace(
+        /'/g,
+        "''"
+      );
+
       const result = await this.sql.unsafe(`
         INSERT INTO apple_watch_workouts (
           user_id, healthkit_uuid, workout_type, start_time, end_time,
@@ -357,12 +396,12 @@ export class HealthKitService {
         RETURNING *
       `);
 
-      await this.createSyncLog(userId, 'apple_watch_workout', 'completed', 1);
+      await this.createSyncLog(userId, "apple_watch_workout", "completed", 1);
 
-      return this.mapAppleWatchWorkout(((result as unknown) as any[])[0]);
+      return this.mapAppleWatchWorkout((result as unknown as any[])[0]);
     } catch (error) {
-      console.error('Sync Apple Watch workout error:', error);
-      throw new Error('Failed to sync Apple Watch workout');
+      console.error("Sync Apple Watch workout error:", error);
+      throw new Error("Failed to sync Apple Watch workout");
     }
   }
 
@@ -371,23 +410,26 @@ export class HealthKitService {
   /**
    * Generate health dashboard data
    */
-  async generateHealthDashboard(userId: string, query: HealthDashboardQuery): Promise<HealthDashboardResponse> {
+  async generateHealthDashboard(
+    userId: string,
+    query: HealthDashboardQuery
+  ): Promise<HealthDashboardResponse> {
     try {
       // Calculate date range based on period
       const endDate = new Date();
       const startDate = new Date();
-      
+
       switch (query.period) {
-        case 'week':
+        case "week":
           startDate.setDate(endDate.getDate() - 7);
           break;
-        case 'month':
+        case "month":
           startDate.setMonth(endDate.getMonth() - 1);
           break;
-        case 'quarter':
+        case "quarter":
           startDate.setMonth(endDate.getMonth() - 3);
           break;
-        case 'year':
+        case "year":
           startDate.setFullYear(endDate.getFullYear() - 1);
           break;
       }
@@ -405,11 +447,11 @@ export class HealthKitService {
         LEFT JOIN heart_rate_data hr ON uhp.user_id = hr.user_id 
           AND hr.recorded_at BETWEEN '${startDate.toISOString()}' AND '${endDate.toISOString()}'
         LEFT JOIN daily_activity_summaries das ON uhp.user_id = das.user_id 
-          AND das.activity_date BETWEEN '${startDate.toISOString().split('T')[0]}' AND '${endDate.toISOString().split('T')[0]}'
+          AND das.activity_date BETWEEN '${startDate.toISOString().split("T")[0]}' AND '${endDate.toISOString().split("T")[0]}'
         WHERE uhp.user_id = '${userId}'
       `);
 
-      const summary = ((summaryResult as unknown) as any[])[0];
+      const summary = (summaryResult as unknown as any[])[0];
 
       // Get recent metrics
       const recentMetrics = await this.getHealthMetrics(userId, undefined, 10);
@@ -420,13 +462,19 @@ export class HealthKitService {
       // Calculate goal progress (mock for now)
       const goalProgress: GoalProgress[] = [
         {
-          goalType: 'daily_steps',
+          goalType: "daily_steps",
           currentValue: parseInt(summary.avg_steps_per_day) || 0,
           goalValue: 10000,
-          unit: 'steps',
-          progress: Math.min((parseInt(summary.avg_steps_per_day) || 0) / 10000, 1),
-          status: (parseInt(summary.avg_steps_per_day) || 0) >= 10000 ? 'exceeded' : 'on_track'
-        }
+          unit: "steps",
+          progress: Math.min(
+            (parseInt(summary.avg_steps_per_day) || 0) / 10000,
+            1
+          ),
+          status:
+            (parseInt(summary.avg_steps_per_day) || 0) >= 10000
+              ? "exceeded"
+              : "on_track",
+        },
       ];
 
       return {
@@ -435,38 +483,38 @@ export class HealthKitService {
           avgHeartRate: parseFloat(summary.avg_heart_rate) || 0,
           totalActiveCalories: parseFloat(summary.total_active_calories) || 0,
           avgStepsPerDay: parseInt(summary.avg_steps_per_day) || 0,
-          sleepHoursAvg: 7.5 // Mock data
+          sleepHoursAvg: 7.5, // Mock data
         },
         trends: {
           heartRateTrend: {
-            metric: 'heart_rate',
+            metric: "heart_rate",
             period: query.period,
             dataPoints: [],
-            trendDirection: 'stable',
-            trendStrength: 0.5
+            trendDirection: "stable",
+            trendStrength: 0.5,
           },
           weightTrend: {
-            metric: 'weight',
+            metric: "weight",
             period: query.period,
             dataPoints: [],
-            trendDirection: 'stable',
-            trendStrength: 0.5
+            trendDirection: "stable",
+            trendStrength: 0.5,
           },
           activityTrend: {
-            metric: 'activity',
+            metric: "activity",
             period: query.period,
             dataPoints: [],
-            trendDirection: 'up',
-            trendStrength: 0.7
-          }
+            trendDirection: "up",
+            trendStrength: 0.7,
+          },
         },
         recentMetrics,
         activeInsights,
-        goalProgress
+        goalProgress,
       };
     } catch (error) {
-      console.error('Generate health dashboard error:', error);
-      throw new Error('Failed to generate health dashboard');
+      console.error("Generate health dashboard error:", error);
+      throw new Error("Failed to generate health dashboard");
     }
   }
 
@@ -475,7 +523,12 @@ export class HealthKitService {
   /**
    * Create sync log entry
    */
-  async createSyncLog(userId: string, syncType: string, status: string, dataPoints: number = 0): Promise<void> {
+  async createSyncLog(
+    userId: string,
+    syncType: string,
+    status: string,
+    dataPoints: number = 0
+  ): Promise<void> {
     try {
       await this.sql.unsafe(`
         INSERT INTO healthkit_sync_logs (
@@ -485,14 +538,16 @@ export class HealthKitService {
         )
       `);
     } catch (error) {
-      console.error('Create sync log error:', error);
+      console.error("Create sync log error:", error);
       // Don't throw - sync logs are not critical
     }
   }
 
   // ==================== HELPER METHODS ====================
 
-  private async createDefaultHealthProfile(userId: string): Promise<UserHealthProfile> {
+  private async createDefaultHealthProfile(
+    userId: string
+  ): Promise<UserHealthProfile> {
     try {
       const result = await this.sql`
         INSERT INTO user_health_profiles (user_id)
@@ -502,8 +557,8 @@ export class HealthKitService {
 
       return this.mapHealthProfile((result as any[])[0]);
     } catch (error) {
-      console.error('Create default health profile error:', error);
-      throw new Error('Failed to create default health profile');
+      console.error("Create default health profile error:", error);
+      throw new Error("Failed to create default health profile");
     }
   }
 
@@ -518,16 +573,18 @@ export class HealthKitService {
     heightCm: row.height_cm ? parseFloat(row.height_cm) : undefined,
     weightKg: row.weight_kg ? parseFloat(row.weight_kg) : undefined,
     healthkitEnabled: row.healthkit_enabled || false,
-    healthkitPermissions: row.healthkit_permissions ? JSON.parse(row.healthkit_permissions) : { read: [], write: [], share: [] },
+    healthkitPermissions: row.healthkit_permissions
+      ? JSON.parse(row.healthkit_permissions)
+      : { read: [], write: [], share: [] },
     appleWatchConnected: row.apple_watch_connected || false,
     shareHealthData: row.share_health_data || false,
     shareWorkoutData: row.share_workout_data || true,
     shareHeartRate: row.share_heart_rate || false,
     autoSyncWorkouts: row.auto_sync_workouts || true,
-    syncFrequency: row.sync_frequency || 'real_time',
+    syncFrequency: row.sync_frequency || "real_time",
     lastSyncAt: row.last_sync_at ? new Date(row.last_sync_at) : undefined,
     createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 
   private mapHealthMetric = (row: any): HealthMetric => ({
@@ -540,7 +597,7 @@ export class HealthKitService {
     recordedAt: new Date(row.recorded_at),
     syncedAt: new Date(row.synced_at),
     metadata: row.metadata ? JSON.parse(row.metadata) : {},
-    createdAt: new Date(row.created_at)
+    createdAt: new Date(row.created_at),
   });
 
   private mapHeartRateData = (row: any): HeartRateData => ({
@@ -556,7 +613,7 @@ export class HealthKitService {
     syncedAt: new Date(row.synced_at),
     confidenceLevel: row.confidence_level || 1.0,
     motionContext: row.motion_context,
-    createdAt: new Date(row.created_at)
+    createdAt: new Date(row.created_at),
   });
 
   private mapAppleWatchWorkout = (row: any): AppleWatchWorkout => ({
@@ -567,20 +624,36 @@ export class HealthKitService {
     startTime: new Date(row.start_time),
     endTime: new Date(row.end_time),
     durationSeconds: parseInt(row.duration_seconds),
-    totalEnergyBurnedKcal: row.total_energy_burned_kcal ? parseFloat(row.total_energy_burned_kcal) : undefined,
-    activeEnergyBurnedKcal: row.active_energy_burned_kcal ? parseFloat(row.active_energy_burned_kcal) : undefined,
-    totalDistanceMeters: row.total_distance_meters ? parseFloat(row.total_distance_meters) : undefined,
-    avgHeartRateBpm: row.avg_heart_rate_bpm ? parseInt(row.avg_heart_rate_bpm) : undefined,
-    maxHeartRateBpm: row.max_heart_rate_bpm ? parseInt(row.max_heart_rate_bpm) : undefined,
-    minHeartRateBpm: row.min_heart_rate_bpm ? parseInt(row.min_heart_rate_bpm) : undefined,
-    heartRateZones: row.heart_rate_zones ? JSON.parse(row.heart_rate_zones) : undefined,
+    totalEnergyBurnedKcal: row.total_energy_burned_kcal
+      ? parseFloat(row.total_energy_burned_kcal)
+      : undefined,
+    activeEnergyBurnedKcal: row.active_energy_burned_kcal
+      ? parseFloat(row.active_energy_burned_kcal)
+      : undefined,
+    totalDistanceMeters: row.total_distance_meters
+      ? parseFloat(row.total_distance_meters)
+      : undefined,
+    avgHeartRateBpm: row.avg_heart_rate_bpm
+      ? parseInt(row.avg_heart_rate_bpm)
+      : undefined,
+    maxHeartRateBpm: row.max_heart_rate_bpm
+      ? parseInt(row.max_heart_rate_bpm)
+      : undefined,
+    minHeartRateBpm: row.min_heart_rate_bpm
+      ? parseInt(row.min_heart_rate_bpm)
+      : undefined,
+    heartRateZones: row.heart_rate_zones
+      ? JSON.parse(row.heart_rate_zones)
+      : undefined,
     sourceDevice: row.source_device,
     workoutLocation: row.workout_location,
     syncedToFitai: row.synced_to_fitai || false,
     fitaiWorkoutSessionId: row.fitai_workout_session_id,
-    syncConflicts: row.sync_conflicts ? JSON.parse(row.sync_conflicts) : undefined,
+    syncConflicts: row.sync_conflicts
+      ? JSON.parse(row.sync_conflicts)
+      : undefined,
     metadata: row.metadata ? JSON.parse(row.metadata) : {},
     createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 }

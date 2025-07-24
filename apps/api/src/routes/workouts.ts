@@ -1,14 +1,14 @@
-import { Hono } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { 
-  createDatabaseClient, 
-  getUserWorkouts, 
-  getWorkoutWithSets,
-  createWorkoutSession,
-  completeWorkoutSession,
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import {
   addWorkoutSet,
-  getUserByClerkId 
-} from '../db/database';
+  completeWorkoutSession,
+  createDatabaseClient,
+  createWorkoutSession,
+  getUserByClerkId,
+  getUserWorkouts,
+  getWorkoutWithSets,
+} from "../db/database";
 
 type Bindings = {
   CACHE: KVNamespace;
@@ -22,28 +22,28 @@ type Variables = {
     email: string;
     firstName?: string;
     lastName?: string;
-    role: 'user' | 'admin';
-    plan: 'free' | 'premium' | 'pro';
+    role: "user" | "admin";
+    plan: "free" | "premium" | "pro";
   };
 };
 
 const workouts = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Get user's workouts
-workouts.get('/', async (c) => {
+workouts.get("/", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
-    const limit = parseInt(c.req.query('limit') || '20');
-    const offset = parseInt(c.req.query('offset') || '0');
-    
+    const limit = parseInt(c.req.query("limit") || "20");
+    const offset = parseInt(c.req.query("offset") || "0");
+
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     const userWorkouts = await getUserWorkouts(sql, dbUser.id, limit, offset);
@@ -64,35 +64,34 @@ workouts.get('/', async (c) => {
         total: Number(countResult[0]?.total || 0),
       },
     });
-
   } catch (error) {
-    console.error('Get workouts error:', error);
+    console.error("Get workouts error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to get workouts' });
+    throw new HTTPException(500, { message: "Failed to get workouts" });
   }
 });
 
 // Create new workout session
-workouts.post('/', async (c) => {
+workouts.post("/", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
     const workoutData = await c.req.json();
-    
+
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Validate required data
     if (!workoutData.name) {
-      throw new HTTPException(400, { message: 'Workout name is required' });
+      throw new HTTPException(400, { message: "Workout name is required" });
     }
 
     // Create workout session
@@ -103,72 +102,73 @@ workouts.post('/', async (c) => {
       name: workoutData.name,
     });
 
-    return c.json({
-      success: true,
-      data: newWorkout,
-      message: 'Sesión de entrenamiento creada exitosamente',
-    }, 201);
-
+    return c.json(
+      {
+        success: true,
+        data: newWorkout,
+        message: "Sesión de entrenamiento creada exitosamente",
+      },
+      201
+    );
   } catch (error) {
-    console.error('Create workout error:', error);
+    console.error("Create workout error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to create workout' });
+    throw new HTTPException(500, { message: "Failed to create workout" });
   }
 });
 
 // Get specific workout with sets
-workouts.get('/:id', async (c) => {
+workouts.get("/:id", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
-    const workoutId = c.req.param('id');
-    
+    const workoutId = c.req.param("id");
+
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Get workout with sets
     const workout = await getWorkoutWithSets(sql, workoutId, dbUser.id);
     if (!workout) {
-      throw new HTTPException(404, { message: 'Workout not found' });
+      throw new HTTPException(404, { message: "Workout not found" });
     }
 
     return c.json({
       success: true,
       data: workout,
     });
-
   } catch (error) {
-    console.error('Get workout error:', error);
+    console.error("Get workout error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to get workout' });
+    throw new HTTPException(500, { message: "Failed to get workout" });
   }
 });
 
 // Add exercise set to workout
-workouts.post('/:id/sets', async (c) => {
+workouts.post("/:id/sets", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
-    const workoutId = c.req.param('id');
+    const workoutId = c.req.param("id");
     const setData = await c.req.json();
-    
+
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Verify workout ownership
@@ -177,14 +177,16 @@ workouts.post('/:id/sets', async (c) => {
       WHERE id = ${workoutId} AND user_id = ${dbUser.id}
       LIMIT 1
     `;
-    
+
     if ((workoutCheck as any[]).length === 0) {
-      throw new HTTPException(404, { message: 'Workout not found' });
+      throw new HTTPException(404, { message: "Workout not found" });
     }
 
     // Validate required data
-    if (!setData.exerciseId || typeof setData.setNumber !== 'number') {
-      throw new HTTPException(400, { message: 'Exercise ID and set number are required' });
+    if (!setData.exerciseId || typeof setData.setNumber !== "number") {
+      throw new HTTPException(400, {
+        message: "Exercise ID and set number are required",
+      });
     }
 
     // Add workout set
@@ -202,33 +204,32 @@ workouts.post('/:id/sets', async (c) => {
     return c.json({
       success: true,
       data: newSet,
-      message: 'Serie agregada exitosamente',
+      message: "Serie agregada exitosamente",
     });
-
   } catch (error) {
-    console.error('Add workout set error:', error);
+    console.error("Add workout set error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to add workout set' });
+    throw new HTTPException(500, { message: "Failed to add workout set" });
   }
 });
 
 // Complete workout session
-workouts.post('/:id/complete', async (c) => {
+workouts.post("/:id/complete", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
-    const workoutId = c.req.param('id');
+    const workoutId = c.req.param("id");
     const completionData = await c.req.json();
-    
+
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Verify workout ownership and get start time
@@ -237,16 +238,16 @@ workouts.post('/:id/complete', async (c) => {
       WHERE id = ${workoutId} AND user_id = ${dbUser.id} AND completed_at IS NULL
       LIMIT 1
     `;
-    
+
     if ((workoutCheck as any[]).length === 0) {
-      throw new HTTPException(404, { message: 'Active workout not found' });
+      throw new HTTPException(404, { message: "Active workout not found" });
     }
 
     // Calculate duration if not provided
     let duration = completionData.duration;
     if (!duration && workoutCheck[0].started_at) {
       const startTime = new Date(workoutCheck[0].started_at).getTime();
-      const endTime = new Date().getTime();
+      const endTime = Date.now();
       duration = Math.round((endTime - startTime) / (1000 * 60)); // minutes
     }
 
@@ -281,44 +282,43 @@ workouts.post('/:id/complete', async (c) => {
     return c.json({
       success: true,
       data: completedWorkout,
-      message: 'Entrenamiento completado exitosamente',
+      message: "Entrenamiento completado exitosamente",
     });
-
   } catch (error) {
-    console.error('Complete workout error:', error);
+    console.error("Complete workout error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to complete workout' });
+    throw new HTTPException(500, { message: "Failed to complete workout" });
   }
 });
 
 // Get workout statistics
-workouts.get('/stats/summary', async (c) => {
+workouts.get("/stats/summary", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
-    const period = c.req.query('period') || 'month';
-    
+    const period = c.req.query("period") || "month";
+
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Calculate date range
-    let dateFilter = '';
+    let dateFilter = "";
     switch (period) {
-      case 'week':
+      case "week":
         dateFilter = "started_at >= CURRENT_DATE - INTERVAL '7 days'";
         break;
-      case 'month':
+      case "month":
         dateFilter = "started_at >= CURRENT_DATE - INTERVAL '30 days'";
         break;
-      case 'year':
+      case "year":
         dateFilter = "started_at >= CURRENT_DATE - INTERVAL '1 year'";
         break;
       default:
@@ -339,10 +339,13 @@ workouts.get('/stats/summary', async (c) => {
     `);
 
     // Get consistency (workouts per week average)
-    const weeksInPeriod = period === 'week' ? 1 : period === 'month' ? 4 : 52;
-    const consistency = Math.min(100, Math.round(
-      (Number(statsResult[0]?.unique_days || 0) / (weeksInPeriod * 7)) * 100
-    ));
+    const weeksInPeriod = period === "week" ? 1 : period === "month" ? 4 : 52;
+    const consistency = Math.min(
+      100,
+      Math.round(
+        (Number(statsResult[0]?.unique_days || 0) / (weeksInPeriod * 7)) * 100
+      )
+    );
 
     // Get top exercises
     const topExercisesResult = await sql.unsafe(`
@@ -373,7 +376,7 @@ workouts.get('/stats/summary', async (c) => {
         totalVolume: Math.round(Number(stats?.total_volume || 0)),
         avgDuration: Math.round(Number(stats?.avg_duration || 0)),
         consistency,
-        topExercises: (topExercisesResult as unknown as any[]).map(ex => ({
+        topExercises: (topExercisesResult as unknown as any[]).map((ex) => ({
           name: ex.name_es || ex.name,
           sessions: Number(ex.sessions),
           maxWeight: Number(ex.max_weight),
@@ -381,13 +384,12 @@ workouts.get('/stats/summary', async (c) => {
         })),
       },
     });
-
   } catch (error) {
-    console.error('Get workout stats error:', error);
+    console.error("Get workout stats error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to get workout stats' });
+    throw new HTTPException(500, { message: "Failed to get workout stats" });
   }
 });
 

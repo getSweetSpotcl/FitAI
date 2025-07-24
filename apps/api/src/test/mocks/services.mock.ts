@@ -1,45 +1,47 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 // Mock OpenAI/AI Service
 export const mockAIService = {
   generateRoutine: vi.fn().mockResolvedValue({
-    name: 'AI Generated Routine',
-    description: 'Test AI routine',
+    name: "AI Generated Routine",
+    description: "Test AI routine",
     weeks: [
       {
         weekNumber: 1,
         days: [
           {
             dayNumber: 1,
-            dayName: 'Lunes',
+            dayName: "Lunes",
             exercises: [
               {
-                exerciseId: 'ex_test_123',
-                exerciseName: 'Test Exercise',
+                exerciseId: "ex_test_123",
+                exerciseName: "Test Exercise",
                 sets: 3,
-                reps: '8-10',
-                weight: 'Progresivo',
+                reps: "8-10",
+                weight: "Progresivo",
                 restSeconds: 120,
-                notes: 'Test notes',
+                notes: "Test notes",
               },
             ],
           },
         ],
       },
     ],
-    difficulty: 'intermediate',
+    difficulty: "intermediate",
     estimatedDuration: 60,
-    targetMuscleGroups: ['chest', 'back'],
-    equipmentNeeded: ['barbell', 'dumbbell'],
+    targetMuscleGroups: ["chest", "back"],
+    equipmentNeeded: ["barbell", "dumbbell"],
   }),
-  
-  generateCoachingAdvice: vi.fn().mockResolvedValue(
-    'Great workout! Focus on maintaining proper form during the bench press.'
-  ),
-  
+
+  generateCoachingAdvice: vi
+    .fn()
+    .mockResolvedValue(
+      "Great workout! Focus on maintaining proper form during the bench press."
+    ),
+
   analyzeExerciseForm: vi.fn().mockResolvedValue({
-    feedback: 'Your form looks good overall',
-    corrections: ['Keep your back straight', 'Control the descent'],
+    feedback: "Your form looks good overall",
+    corrections: ["Keep your back straight", "Control the descent"],
     safetyScore: 8.5,
   }),
 };
@@ -57,21 +59,23 @@ export const mockMercadoPago = {
   preferences: {
     create: vi.fn().mockResolvedValue({
       body: {
-        id: 'test_preference_123',
-        init_point: 'https://www.mercadopago.cl/checkout/v1/redirect?pref_id=test_preference_123',
-        sandbox_init_point: 'https://sandbox.mercadopago.cl/checkout/v1/redirect?pref_id=test_preference_123',
+        id: "test_preference_123",
+        init_point:
+          "https://www.mercadopago.cl/checkout/v1/redirect?pref_id=test_preference_123",
+        sandbox_init_point:
+          "https://sandbox.mercadopago.cl/checkout/v1/redirect?pref_id=test_preference_123",
       },
     }),
   },
   payment: {
     get: vi.fn().mockResolvedValue({
       body: {
-        id: 'payment_test_123',
-        status: 'approved',
-        status_detail: 'accredited',
-        external_reference: 'user_test_123_premium_monthly',
+        id: "payment_test_123",
+        status: "approved",
+        status_detail: "accredited",
+        external_reference: "user_test_123_premium_monthly",
         transaction_amount: 9990,
-        currency_id: 'CLP',
+        currency_id: "CLP",
       },
     }),
   },
@@ -80,17 +84,17 @@ export const mockMercadoPago = {
 // Mock Clerk
 export const mockClerkClient = {
   verifyToken: vi.fn().mockResolvedValue({
-    sub: 'clerk_test_123',
-    email: 'test@example.com',
-    firstName: 'Test',
-    lastName: 'User',
+    sub: "clerk_test_123",
+    email: "test@example.com",
+    firstName: "Test",
+    lastName: "User",
   }),
   users: {
     getUser: vi.fn().mockResolvedValue({
-      id: 'clerk_test_123',
-      emailAddresses: [{ emailAddress: 'test@example.com' }],
-      firstName: 'Test',
-      lastName: 'User',
+      id: "clerk_test_123",
+      emailAddresses: [{ emailAddress: "test@example.com" }],
+      firstName: "Test",
+      lastName: "User",
     }),
   },
 };
@@ -114,71 +118,71 @@ export const mockHealthDataService = {
   updateSyncStatus: vi.fn().mockResolvedValue(undefined),
   getHealthMetrics: vi.fn().mockResolvedValue([
     {
-      id: 'metric_test_123',
-      userId: 'user_test_123',
-      metricType: 'heart_rate',
+      id: "metric_test_123",
+      userId: "user_test_123",
+      metricType: "heart_rate",
       value: 75,
-      unit: 'bpm',
-      sourceApp: 'Apple Health',
-      recordedAt: new Date('2024-01-15T10:00:00Z'),
-      syncedAt: new Date('2024-01-15T10:05:00Z'),
+      unit: "bpm",
+      sourceApp: "Apple Health",
+      recordedAt: new Date("2024-01-15T10:00:00Z"),
+      syncedAt: new Date("2024-01-15T10:05:00Z"),
       metadata: {},
-      createdAt: new Date('2024-01-15T10:05:00Z'),
+      createdAt: new Date("2024-01-15T10:05:00Z"),
     },
   ]),
   calculateRecoveryScore: vi.fn().mockResolvedValue({
     currentScore: 85,
-    trend: 'improving',
+    trend: "improving",
     factorsInfluencing: {
-      sleep: 'positive',
-      hrv: 'positive',
-      workloadBalance: 'neutral',
-      consistency: 'positive',
+      sleep: "positive",
+      hrv: "positive",
+      workloadBalance: "neutral",
+      consistency: "positive",
     },
     recommendations: [
-      'Continue with your current training intensity',
-      'Maintain good sleep habits',
+      "Continue with your current training intensity",
+      "Maintain good sleep habits",
     ],
-    nextRecommendationDate: new Date('2024-01-16'),
+    nextRecommendationDate: new Date("2024-01-16"),
   }),
 };
 
-// Mock HealthKit Service  
+// Mock HealthKit Service
 export const mockHealthKitService = {
   getUserHealthProfile: vi.fn().mockResolvedValue({
-    id: 'profile_test_123',
-    userId: 'user_test_123',
+    id: "profile_test_123",
+    userId: "user_test_123",
     healthkitEnabled: true,
     appleWatchConnected: true,
     healthkitPermissions: {
-      read: ['heart_rate', 'workout', 'step_count'],
-      write: ['workout'],
-      share: ['workout'],
+      read: ["heart_rate", "workout", "step_count"],
+      write: ["workout"],
+      share: ["workout"],
     },
-    syncFrequency: 'real_time',
-    lastSyncAt: new Date('2024-01-15T09:00:00Z'),
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-15'),
+    syncFrequency: "real_time",
+    lastSyncAt: new Date("2024-01-15T09:00:00Z"),
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-15"),
   }),
-  
+
   updateHealthKitPermissions: vi.fn().mockResolvedValue({
-    id: 'profile_test_123',
-    userId: 'user_test_123',
+    id: "profile_test_123",
+    userId: "user_test_123",
     healthkitEnabled: true,
     healthkitPermissions: {
-      read: ['heart_rate', 'workout', 'step_count', 'active_energy'],
-      write: ['workout'],
-      share: ['workout', 'heart_rate'],
+      read: ["heart_rate", "workout", "step_count", "active_energy"],
+      write: ["workout"],
+      share: ["workout", "heart_rate"],
     },
   }),
-  
+
   syncAppleWatchWorkout: vi.fn().mockResolvedValue({
-    id: 'watch_workout_123',
-    userId: 'user_test_123',
-    healthkitUuid: 'hk_uuid_123',
-    workoutType: 'running',
-    startTime: new Date('2024-01-15T08:00:00Z'),
-    endTime: new Date('2024-01-15T08:30:00Z'),
+    id: "watch_workout_123",
+    userId: "user_test_123",
+    healthkitUuid: "hk_uuid_123",
+    workoutType: "running",
+    startTime: new Date("2024-01-15T08:00:00Z"),
+    endTime: new Date("2024-01-15T08:30:00Z"),
     durationSeconds: 1800,
     totalEnergyBurnedKcal: 250,
     totalDistanceMeters: 5000,

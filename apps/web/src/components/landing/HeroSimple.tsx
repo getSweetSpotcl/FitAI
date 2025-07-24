@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
-import { Button } from '../ui';
-import { Download, Play } from 'lucide-react';
+import { useUser } from "@clerk/nextjs";
+import { Download, Play } from "lucide-react";
+import { useRouter } from "next/navigation";
+import type React from "react";
+import { useEffect, useState } from "react";
+import { Button } from "../ui";
 
 export const HeroSimple: React.FC = () => {
   const router = useRouter();
@@ -17,17 +18,17 @@ export const HeroSimple: React.FC = () => {
 
   const handleGetStarted = () => {
     if (isSignedIn) {
-      router.push('/dashboard');
+      router.push("/dashboard");
     } else {
-      router.push('/sign-up');
+      router.push("/sign-up");
     }
   };
 
   const handleDemo = () => {
     // For now, scroll to features or redirect to a demo page
-    const element = document.querySelector('#features');
+    const element = document.querySelector("#features");
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      element.scrollIntoView({ behavior: "smooth" });
     }
   };
 
@@ -35,7 +36,7 @@ export const HeroSimple: React.FC = () => {
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background gradient */}
       <div className="absolute inset-0 hero-gradient" />
-      
+
       {/* Animated background elements */}
       <div className="absolute inset-0 opacity-30">
         <div className="absolute top-20 left-10 w-72 h-72 bg-orange-500/20 rounded-full blur-3xl animate-pulse" />
@@ -62,8 +63,8 @@ export const HeroSimple: React.FC = () => {
 
             {/* Subtitle */}
             <p className="text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-              Rutinas personalizadas por IA, seguimiento en Apple Watch, 
-              y analytics avanzados. Todo en español, diseñado para Chile.
+              Rutinas personalizadas por IA, seguimiento en Apple Watch, y
+              analytics avanzados. Todo en español, diseñado para Chile.
             </p>
 
             {/* Key benefits */}
@@ -84,16 +85,20 @@ export const HeroSimple: React.FC = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 leftIcon={<Download className="w-5 h-5" />}
                 className="animate-pulse-glow"
                 onClick={handleGetStarted}
               >
-                {!mounted ? 'Descargar Gratis' : (isSignedIn ? 'Ir a Dashboard' : 'Descargar Gratis')}
+                {!mounted
+                  ? "Descargar Gratis"
+                  : isSignedIn
+                    ? "Ir a Dashboard"
+                    : "Descargar Gratis"}
               </Button>
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 size="lg"
                 leftIcon={<Play className="w-5 h-5" />}
                 onClick={handleDemo}
@@ -135,12 +140,16 @@ export const HeroSimple: React.FC = () => {
                       <div className="w-4 h-2 bg-white rounded-sm" />
                     </div>
                   </div>
-                  
+
                   {/* App content preview */}
                   <div className="px-4 py-2">
-                    <div className="text-white text-lg font-bold mb-2">¡Buenos días!</div>
-                    <div className="text-gray-400 text-sm mb-4">¿Listo para dominar el día?</div>
-                    
+                    <div className="text-white text-lg font-bold mb-2">
+                      ¡Buenos días!
+                    </div>
+                    <div className="text-gray-400 text-sm mb-4">
+                      ¿Listo para dominar el día?
+                    </div>
+
                     {/* AI coaching bubble */}
                     <div className="hero-gradient p-3 rounded-2xl mb-4">
                       <div className="flex items-start gap-3">
@@ -152,19 +161,25 @@ export const HeroSimple: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Workout card */}
                     <div className="bg-gray-800 rounded-2xl p-4">
-                      <div className="text-white font-semibold mb-1">Entrenamiento de Hoy</div>
-                      <div className="text-gray-400 text-sm mb-3">Día de Empuje • 45 min</div>
+                      <div className="text-white font-semibold mb-1">
+                        Entrenamiento de Hoy
+                      </div>
+                      <div className="text-gray-400 text-sm mb-3">
+                        Día de Empuje • 45 min
+                      </div>
                       <div className="energy-gradient rounded-xl py-3 text-center">
-                        <div className="text-white font-semibold">▶️ Comenzar Entrenamiento</div>
+                        <div className="text-white font-semibold">
+                          ▶️ Comenzar Entrenamiento
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              
+
               {/* Glow effect */}
               <div className="absolute inset-0 bg-orange-500/20 rounded-[3rem] blur-2xl -z-10 animate-pulse-glow" />
             </div>

@@ -1,46 +1,43 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { clsx } from 'clsx';
+import { clsx } from "clsx";
+import type React from "react";
 
 interface SectionProps {
   children: React.ReactNode;
   className?: string;
   id?: string;
-  background?: 'default' | 'gradient' | 'glass';
-  padding?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+  background?: "default" | "gradient" | "glass";
+  padding?: "none" | "sm" | "md" | "lg" | "xl";
 }
 
-export const Section: React.FC<SectionProps> = ({ 
-  children, 
-  className, 
+export const Section: React.FC<SectionProps> = ({
+  children,
+  className,
   id,
-  background = 'default',
-  padding = 'lg'
+  background = "default",
+  padding = "lg",
 }) => {
   const baseClasses = clsx(
-    'w-full',
+    "w-full",
     {
+      "hero-gradient": background === "gradient",
+      "glass-effect border-y border-gray-700/30": background === "glass",
       // Backgrounds
-      '': background === 'default',
-      'hero-gradient': background === 'gradient',
-      'glass-effect border-y border-gray-700/30': background === 'glass',
-      
+
       // Padding
-      '': padding === 'none',
-      'py-8': padding === 'sm',
-      'py-16': padding === 'md',
-      'py-24': padding === 'lg',
-      'py-32': padding === 'xl',
+      "": padding === "none",
+      "py-8": padding === "sm",
+      "py-16": padding === "md",
+      "py-24": padding === "lg",
+      "py-32": padding === "xl",
     },
     className
   );
 
   return (
     <section id={id} className={baseClasses}>
-      <div className="container-custom">
-        {children}
-      </div>
+      <div className="container-custom">{children}</div>
     </section>
   );
 };
@@ -53,14 +50,14 @@ interface SectionHeaderProps {
   centered?: boolean;
 }
 
-export const SectionHeader: React.FC<SectionHeaderProps> = ({ 
-  title, 
+export const SectionHeader: React.FC<SectionHeaderProps> = ({
+  title,
   subtitle,
-  description, 
+  description,
   className,
-  centered = true 
+  centered = true,
 }) => (
-  <div className={clsx('mb-16', { 'text-center': centered }, className)}>
+  <div className={clsx("mb-16", { "text-center": centered }, className)}>
     {subtitle && (
       <p className="text-orange-400 font-semibold text-sm uppercase tracking-wide mb-4">
         {subtitle}

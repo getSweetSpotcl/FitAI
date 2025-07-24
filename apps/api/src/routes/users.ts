@@ -1,6 +1,10 @@
-import { Hono } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { createDatabaseClient, getUserByClerkId, getUserById } from '../db/database';
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import {
+  createDatabaseClient,
+  getUserByClerkId,
+  getUserById,
+} from "../db/database";
 
 type Bindings = {
   CACHE: KVNamespace;
@@ -14,28 +18,28 @@ type Variables = {
     email: string;
     firstName?: string;
     lastName?: string;
-    role: 'user' | 'admin';
-    plan: 'free' | 'premium' | 'pro';
+    role: "user" | "admin";
+    plan: "free" | "premium" | "pro";
   };
 };
 
 const users = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Get current user profile
-users.get('/me', async (c) => {
+users.get("/me", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
     // Connect to database
     const sql = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     // Get user from database by Clerk ID
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Get user profile data
@@ -89,17 +93,19 @@ users.get('/me', async (c) => {
       name: dbUser.name,
       plan: dbUser.subscription_plan,
       role: dbUser.user_role,
-      profile: profileResult[0] ? {
-        goals: profileResult[0].goals || [],
-        experienceLevel: profileResult[0].experience_level,
-        availableDays: profileResult[0].available_days,
-        height: profileResult[0].height,
-        weight: profileResult[0].weight,
-        age: profileResult[0].age,
-        equipment: profileResult[0].equipment_access || [],
-        workoutLocation: profileResult[0].workout_location,
-        injuries: profileResult[0].injuries || [],
-      } : null,
+      profile: profileResult[0]
+        ? {
+            goals: profileResult[0].goals || [],
+            experienceLevel: profileResult[0].experience_level,
+            availableDays: profileResult[0].available_days,
+            height: profileResult[0].height,
+            weight: profileResult[0].weight,
+            age: profileResult[0].age,
+            equipment: profileResult[0].equipment_access || [],
+            workoutLocation: profileResult[0].workout_location,
+            injuries: profileResult[0].injuries || [],
+          }
+        : null,
       stats: {
         workoutsCompleted: Number(workoutStats[0]?.workouts_completed || 0),
         currentStreak: Number(streakResult[0]?.current_streak || 0),
@@ -113,33 +119,32 @@ users.get('/me', async (c) => {
       success: true,
       data: userProfile,
     });
-
   } catch (error) {
-    console.error('Get user profile error:', error);
+    console.error("Get user profile error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to get user profile' });
+    throw new HTTPException(500, { message: "Failed to get user profile" });
   }
 });
 
 // Update user profile
-users.put('/me', async (c) => {
+users.put("/me", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
     const updateData = await c.req.json();
 
     // Connect to database
     const sql = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     // Get user from database
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Update basic user info if provided
@@ -204,53 +209,52 @@ users.put('/me', async (c) => {
     return c.json({
       success: true,
       data: {
-        id: updatedUser!.id,
-        email: updatedUser!.email,
-        name: updatedUser!.name,
+        id: updatedUser?.id,
+        email: updatedUser?.email,
+        name: updatedUser?.name,
         profile: updatedProfile[0] || null,
-        updatedAt: updatedUser!.updated_at,
+        updatedAt: updatedUser?.updated_at,
       },
-      message: 'Perfil actualizado exitosamente',
+      message: "Perfil actualizado exitosamente",
     });
-
   } catch (error) {
-    console.error('Update user profile error:', error);
+    console.error("Update user profile error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to update user profile' });
+    throw new HTTPException(500, { message: "Failed to update user profile" });
   }
 });
 
 // Get user progress metrics
-users.get('/me/progress', async (c) => {
+users.get("/me/progress", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
-    const period = c.req.query('period') || 'last_30_days';
-    
+    const period = c.req.query("period") || "last_30_days";
+
     // Connect to database
     const sql = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     // Get user from database
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Calculate date range based on period
-    let dateFilter = '';
+    let dateFilter = "";
     switch (period) {
-      case 'last_7_days':
+      case "last_7_days":
         dateFilter = "started_at >= CURRENT_DATE - INTERVAL '7 days'";
         break;
-      case 'last_30_days':
+      case "last_30_days":
         dateFilter = "started_at >= CURRENT_DATE - INTERVAL '30 days'";
         break;
-      case 'last_90_days':
+      case "last_90_days":
         dateFilter = "started_at >= CURRENT_DATE - INTERVAL '90 days'";
         break;
       default:
@@ -342,9 +346,14 @@ users.get('/me/progress', async (c) => {
           avgWorkoutDuration: Math.round(Number(metrics?.avg_duration || 0)),
           totalVolume: Math.round(Number(metrics?.total_volume || 0)),
           avgRPE: Number(metrics?.avg_rpe || 0).toFixed(1),
-          consistencyScore: Math.min(100, Math.round((Number(consistency?.avg_weekly_workouts || 0) / targetDays) * 100)),
+          consistencyScore: Math.min(
+            100,
+            Math.round(
+              (Number(consistency?.avg_weekly_workouts || 0) / targetDays) * 100
+            )
+          ),
         },
-        personalRecords: (prsResult as any[]).map(pr => ({
+        personalRecords: (prsResult as any[]).map((pr) => ({
           exerciseId: pr.exercise_id,
           exerciseName: pr.exercise_name,
           category: pr.category,
@@ -360,33 +369,32 @@ users.get('/me/progress', async (c) => {
         },
       },
     });
-
   } catch (error) {
-    console.error('Get user progress error:', error);
+    console.error("Get user progress error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to get user progress' });
+    throw new HTTPException(500, { message: "Failed to get user progress" });
   }
 });
 
 // Update user preferences
-users.put('/me/preferences', async (c) => {
+users.put("/me/preferences", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
     const preferences = await c.req.json();
 
     // Connect to database
     const sql = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     // Get user from database
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Store preferences in user_profiles table as JSONB
@@ -414,33 +422,32 @@ users.put('/me/preferences', async (c) => {
         preferences,
         updatedAt: result[0]?.updated_at || new Date().toISOString(),
       },
-      message: 'Preferencias actualizadas exitosamente',
+      message: "Preferencias actualizadas exitosamente",
     });
-
   } catch (error) {
-    console.error('Update preferences error:', error);
+    console.error("Update preferences error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to update preferences' });
+    throw new HTTPException(500, { message: "Failed to update preferences" });
   }
 });
 
 // Delete user account (soft delete)
-users.delete('/me', async (c) => {
+users.delete("/me", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
     // Connect to database
     const sql = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     // Get user from database
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Soft delete user
@@ -454,15 +461,14 @@ users.delete('/me', async (c) => {
 
     return c.json({
       success: true,
-      message: 'Cuenta eliminada exitosamente',
+      message: "Cuenta eliminada exitosamente",
     });
-
   } catch (error) {
-    console.error('Delete user error:', error);
+    console.error("Delete user error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to delete user account' });
+    throw new HTTPException(500, { message: "Failed to delete user account" });
   }
 });
 

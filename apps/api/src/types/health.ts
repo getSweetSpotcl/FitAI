@@ -1,30 +1,30 @@
 // Health data types for Apple Health integration
 
-export type HealthMetricType = 
-  | 'steps'
-  | 'calories'
-  | 'heart_rate'
-  | 'distance'
-  | 'floors_climbed'
-  | 'active_energy'
-  | 'resting_heart_rate'
-  | 'blood_pressure_systolic'
-  | 'blood_pressure_diastolic'
-  | 'body_weight'
-  | 'body_fat_percentage'
-  | 'vo2_max';
+export type HealthMetricType =
+  | "steps"
+  | "calories"
+  | "heart_rate"
+  | "distance"
+  | "floors_climbed"
+  | "active_energy"
+  | "resting_heart_rate"
+  | "blood_pressure_systolic"
+  | "blood_pressure_diastolic"
+  | "body_weight"
+  | "body_fat_percentage"
+  | "vo2_max";
 
-export type HealthMetricUnit = 
-  | 'count'
-  | 'kcal'
-  | 'bpm'
-  | 'km'
-  | 'miles'
-  | 'kg'
-  | 'lbs'
-  | 'mmHg'
-  | 'percent'
-  | 'ml/kg/min';
+export type HealthMetricUnit =
+  | "count"
+  | "kcal"
+  | "bpm"
+  | "km"
+  | "miles"
+  | "kg"
+  | "lbs"
+  | "mmHg"
+  | "percent"
+  | "ml/kg/min";
 
 export interface HealthMetric {
   id: string;
@@ -70,20 +70,20 @@ export interface SleepData {
   createdAt: Date;
 }
 
-export type AppleWorkoutType = 
-  | 'running'
-  | 'cycling'
-  | 'swimming'
-  | 'walking'
-  | 'hiking'
-  | 'yoga'
-  | 'strength_training'
-  | 'functional_strength_training'
-  | 'cross_training'
-  | 'elliptical'
-  | 'rowing'
-  | 'stairs'
-  | 'other';
+export type AppleWorkoutType =
+  | "running"
+  | "cycling"
+  | "swimming"
+  | "walking"
+  | "hiking"
+  | "yoga"
+  | "strength_training"
+  | "functional_strength_training"
+  | "cross_training"
+  | "elliptical"
+  | "rowing"
+  | "stairs"
+  | "other";
 
 export interface HealthWorkout {
   id: string;
@@ -103,8 +103,8 @@ export interface HealthWorkout {
   createdAt: Date;
 }
 
-export type SyncStatus = 'success' | 'partial' | 'failed';
-export type HealthDataType = 'metrics' | 'workouts' | 'sleep' | 'hrv';
+export type SyncStatus = "success" | "partial" | "failed";
+export type HealthDataType = "metrics" | "workouts" | "sleep" | "hrv";
 
 export interface HealthSyncStatus {
   id: string;
@@ -118,8 +118,12 @@ export interface HealthSyncStatus {
   updatedAt: Date;
 }
 
-export type TrainingReadiness = 'high' | 'moderate' | 'low' | 'rest';
-export type RecommendedIntensity = 'high' | 'moderate' | 'low' | 'active_recovery';
+export type TrainingReadiness = "high" | "moderate" | "low" | "rest";
+export type RecommendedIntensity =
+  | "high"
+  | "moderate"
+  | "low"
+  | "active_recovery";
 
 export interface RecoveryRecommendation {
   id: string;
@@ -139,10 +143,13 @@ export interface RecoveryRecommendation {
 export interface SyncHealthDataRequest {
   dataType: HealthDataType;
   data: {
-    metrics?: Omit<HealthMetric, 'id' | 'userId' | 'syncedAt' | 'createdAt'>[];
-    workouts?: Omit<HealthWorkout, 'id' | 'userId' | 'syncedAt' | 'createdAt'>[];
-    sleep?: Omit<SleepData, 'id' | 'userId' | 'syncedAt' | 'createdAt'>[];
-    hrv?: Omit<HRVData, 'id' | 'userId' | 'syncedAt' | 'createdAt'>[];
+    metrics?: Omit<HealthMetric, "id" | "userId" | "syncedAt" | "createdAt">[];
+    workouts?: Omit<
+      HealthWorkout,
+      "id" | "userId" | "syncedAt" | "createdAt"
+    >[];
+    sleep?: Omit<SleepData, "id" | "userId" | "syncedAt" | "createdAt">[];
+    hrv?: Omit<HRVData, "id" | "userId" | "syncedAt" | "createdAt">[];
   };
   lastSyncAt?: Date;
 }
@@ -163,7 +170,7 @@ export interface HealthMetricsQuery {
   startDate?: Date;
   endDate?: Date;
   limit?: number;
-  aggregation?: 'raw' | 'daily' | 'weekly' | 'monthly';
+  aggregation?: "raw" | "daily" | "weekly" | "monthly";
 }
 
 export interface HealthMetricsResponse {
@@ -188,12 +195,12 @@ export interface HealthMetricsResponse {
 
 export interface RecoveryAnalysis {
   currentScore: number;
-  trend: 'improving' | 'stable' | 'declining';
+  trend: "improving" | "stable" | "declining";
   factorsInfluencing: {
-    sleep: 'positive' | 'negative' | 'neutral';
-    hrv: 'positive' | 'negative' | 'neutral';
-    workloadBalance: 'positive' | 'negative' | 'neutral';
-    consistency: 'positive' | 'negative' | 'neutral';
+    sleep: "positive" | "negative" | "neutral";
+    hrv: "positive" | "negative" | "neutral";
+    workloadBalance: "positive" | "negative" | "neutral";
+    consistency: "positive" | "negative" | "neutral";
   };
   recommendations: string[];
   nextRecommendationDate: Date;
@@ -243,29 +250,38 @@ export interface HealthPermissions {
 export interface UserHealthProfile {
   id: string;
   userId: string;
-  
+
   // Basic health info
   birthDate?: Date;
-  biologicalSex?: 'male' | 'female' | 'other' | 'not_set';
-  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'not_set';
+  biologicalSex?: "male" | "female" | "other" | "not_set";
+  bloodType?:
+    | "A+"
+    | "A-"
+    | "B+"
+    | "B-"
+    | "AB+"
+    | "AB-"
+    | "O+"
+    | "O-"
+    | "not_set";
   heightCm?: number;
   weightKg?: number;
-  
+
   // HealthKit integration
   healthkitEnabled: boolean;
   healthkitPermissions: HealthKitPermissions;
   appleWatchConnected: boolean;
-  
+
   // Privacy settings
   shareHealthData: boolean;
   shareWorkoutData: boolean;
   shareHeartRate: boolean;
-  
+
   // Sync settings
   autoSyncWorkouts: boolean;
-  syncFrequency: 'real_time' | 'hourly' | 'daily';
+  syncFrequency: "real_time" | "hourly" | "daily";
   lastSyncAt?: Date;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -277,49 +293,49 @@ export interface HealthKitPermissions {
   share: HealthKitDataType[];
 }
 
-export type HealthKitDataType = 
-  | 'heart_rate'
-  | 'workout'
-  | 'step_count'
-  | 'distance_walking'
-  | 'active_energy'
-  | 'basal_energy'
-  | 'body_mass'
-  | 'height'
-  | 'blood_pressure'
-  | 'body_fat_percentage'
-  | 'respiratory_rate'
-  | 'oxygen_saturation'
-  | 'sleep_analysis'
-  | 'flights_climbed'
-  | 'exercise_time'
-  | 'heart_rate_variability';
+export type HealthKitDataType =
+  | "heart_rate"
+  | "workout"
+  | "step_count"
+  | "distance_walking"
+  | "active_energy"
+  | "basal_energy"
+  | "body_mass"
+  | "height"
+  | "blood_pressure"
+  | "body_fat_percentage"
+  | "respiratory_rate"
+  | "oxygen_saturation"
+  | "sleep_analysis"
+  | "flights_climbed"
+  | "exercise_time"
+  | "heart_rate_variability";
 
 // Heart rate data with enhanced context
 export interface HeartRateData {
   id: string;
   userId: string;
-  
+
   // Heart rate measurement
   heartRateBpm: number;
-  heartRateContext?: 'resting' | 'active' | 'workout' | 'recovery';
-  
+  heartRateContext?: "resting" | "active" | "workout" | "recovery";
+
   // Workout association
   workoutSessionId?: string;
-  
+
   // Data source
-  dataSource: 'apple_watch' | 'chest_strap' | 'manual';
+  dataSource: "apple_watch" | "chest_strap" | "manual";
   sourceDevice?: string;
   healthkitUuid?: string;
-  
+
   // Timing
   recordedAt: Date;
   syncedAt: Date;
-  
+
   // Quality
   confidenceLevel: number;
-  motionContext?: 'stationary' | 'walking' | 'running' | 'cycling';
-  
+  motionContext?: "stationary" | "walking" | "running" | "cycling";
+
   createdAt: Date;
 }
 
@@ -327,39 +343,39 @@ export interface HeartRateData {
 export interface AppleWatchWorkout {
   id: string;
   userId: string;
-  
+
   // HealthKit identifiers
   healthkitUuid: string;
   workoutType: string;
-  
+
   // Timing
   startTime: Date;
   endTime: Date;
   durationSeconds: number;
-  
+
   // Metrics
   totalEnergyBurnedKcal?: number;
   activeEnergyBurnedKcal?: number;
   totalDistanceMeters?: number;
-  
+
   // Heart rate
   avgHeartRateBpm?: number;
   maxHeartRateBpm?: number;
   minHeartRateBpm?: number;
   heartRateZones?: HeartRateZones;
-  
+
   // Context
   sourceDevice?: string;
-  workoutLocation?: 'indoor' | 'outdoor' | 'unknown';
-  
+  workoutLocation?: "indoor" | "outdoor" | "unknown";
+
   // Sync status
   syncedToFitai: boolean;
   fitaiWorkoutSessionId?: string;
   syncConflicts?: SyncConflict[];
-  
+
   // Raw data
   metadata: Record<string, any>;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -375,51 +391,55 @@ export interface HeartRateZones {
 
 // Sync conflict information
 export interface SyncConflict {
-  conflictType: 'duration_mismatch' | 'calorie_difference' | 'workout_type' | 'timing_overlap';
+  conflictType:
+    | "duration_mismatch"
+    | "calorie_difference"
+    | "workout_type"
+    | "timing_overlap";
   description: string;
   healthkitValue: any;
   fitaiValue: any;
-  resolution?: 'use_healthkit' | 'use_fitai' | 'manual_review';
+  resolution?: "use_healthkit" | "use_fitai" | "manual_review";
 }
 
 // Daily activity summary
 export interface DailyActivitySummary {
   id: string;
   userId: string;
-  
+
   // Date
   activityDate: Date;
-  
+
   // Steps and movement
   stepCount: number;
   distanceWalkedMeters: number;
   flightsClimbed: number;
-  
+
   // Energy
   activeEnergyKcal: number;
   basalEnergyKcal: number;
   totalEnergyKcal: number;
-  
+
   // Goals and achievements
   exerciseMinutes: number;
   standHours: number;
   moveGoalKcal?: number;
   exerciseGoalMinutes: number;
   standGoalHours: number;
-  
+
   // Goal status
   moveGoalAchieved: boolean;
   exerciseGoalAchieved: boolean;
   standGoalAchieved: boolean;
-  
+
   // Data quality
   dataComplete: boolean;
   missingDataTypes: string[];
-  
+
   // Sync status
   healthkitSynced: boolean;
   lastUpdatedAt: Date;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -428,46 +448,46 @@ export interface DailyActivitySummary {
 export interface HealthInsight {
   id: string;
   userId: string;
-  
+
   // Insight details
-  insightType: 'trend' | 'recommendation' | 'alert' | 'achievement';
+  insightType: "trend" | "recommendation" | "alert" | "achievement";
   insightCategory: string;
-  
+
   title: string;
   description: string;
-  
+
   // Analysis
   insightData: Record<string, any>;
   confidenceScore: number;
-  importanceLevel: 'low' | 'medium' | 'high' | 'critical';
-  
+  importanceLevel: "low" | "medium" | "high" | "critical";
+
   // Actions
   actionable: boolean;
   recommendedActions?: RecommendedAction[];
-  
+
   // Timing
   detectedAt: Date;
   expiresAt?: Date;
-  
+
   // User interaction
   isRead: boolean;
   isDismissed: boolean;
-  userFeedback?: 'helpful' | 'not_helpful' | 'irrelevant';
-  
+  userFeedback?: "helpful" | "not_helpful" | "irrelevant";
+
   // Sources
   dataSources: string[];
   analysisPeriodStart?: Date;
   analysisPeriodEnd?: Date;
-  
+
   createdAt: Date;
 }
 
 // Recommended action
 export interface RecommendedAction {
-  actionType: 'workout' | 'rest' | 'nutrition' | 'medical' | 'lifestyle';
+  actionType: "workout" | "rest" | "nutrition" | "medical" | "lifestyle";
   title: string;
   description: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: "low" | "medium" | "high";
   estimatedImpact?: string;
   actionData?: Record<string, any>;
 }
@@ -476,31 +496,31 @@ export interface RecommendedAction {
 export interface HealthKitSyncLog {
   id: string;
   userId: string;
-  
+
   // Sync details
   syncType: string;
-  syncStatus: 'pending' | 'processing' | 'completed' | 'failed';
-  
+  syncStatus: "pending" | "processing" | "completed" | "failed";
+
   // Progress
   dataPointsSynced: number;
   syncStartTime: Date;
   syncEndTime?: Date;
-  
+
   // Error handling
   errorMessage?: string;
   retryCount: number;
   nextRetryAt?: Date;
-  
+
   // Device info
   deviceInfo?: DeviceInfo;
   healthkitVersion?: string;
-  
+
   createdAt: Date;
 }
 
 // Device information
 export interface DeviceInfo {
-  deviceType: 'iPhone' | 'Apple Watch' | 'iPad';
+  deviceType: "iPhone" | "Apple Watch" | "iPad";
   deviceModel: string;
   osVersion: string;
   appVersion: string;
@@ -511,15 +531,24 @@ export interface DeviceInfo {
 
 export interface UpdateHealthProfileRequest {
   birthDate?: Date;
-  biologicalSex?: 'male' | 'female' | 'other' | 'not_set';
-  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'not_set';
+  biologicalSex?: "male" | "female" | "other" | "not_set";
+  bloodType?:
+    | "A+"
+    | "A-"
+    | "B+"
+    | "B-"
+    | "AB+"
+    | "AB-"
+    | "O+"
+    | "O-"
+    | "not_set";
   heightCm?: number;
   weightKg?: number;
   shareHealthData?: boolean;
   shareWorkoutData?: boolean;
   shareHeartRate?: boolean;
   autoSyncWorkouts?: boolean;
-  syncFrequency?: 'real_time' | 'hourly' | 'daily';
+  syncFrequency?: "real_time" | "hourly" | "daily";
 }
 
 export interface HealthKitPermissionRequest {
@@ -547,7 +576,7 @@ export interface AddHealthMetricRequest {
 }
 
 export interface HealthDashboardQuery {
-  period: 'week' | 'month' | 'quarter' | 'year';
+  period: "week" | "month" | "quarter" | "year";
   metrics?: string[];
   includeInsights?: boolean;
   includeGoals?: boolean;
@@ -556,7 +585,7 @@ export interface HealthDashboardQuery {
 export interface HeartRateAnalysisQuery {
   startDate: Date;
   endDate: Date;
-  context?: 'resting' | 'active' | 'workout' | 'recovery';
+  context?: "resting" | "active" | "workout" | "recovery";
   includeWorkouts?: boolean;
 }
 
@@ -594,7 +623,7 @@ export interface TrendData {
     value: number;
     change?: number;
   }>;
-  trendDirection: 'up' | 'down' | 'stable';
+  trendDirection: "up" | "down" | "stable";
   trendStrength: number; // 0-1
 }
 
@@ -604,6 +633,6 @@ export interface GoalProgress {
   goalValue: number;
   unit: string;
   progress: number; // 0-1
-  status: 'on_track' | 'behind' | 'exceeded';
+  status: "on_track" | "behind" | "exceeded";
   daysRemaining?: number;
 }

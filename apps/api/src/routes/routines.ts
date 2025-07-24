@@ -1,6 +1,10 @@
-import { Hono } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { createDatabaseClient, getUserRoutines, getUserByClerkId } from '../db/database';
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import {
+  createDatabaseClient,
+  getUserByClerkId,
+  getUserRoutines,
+} from "../db/database";
 
 type Bindings = {
   CACHE: KVNamespace;
@@ -14,25 +18,25 @@ type Variables = {
     email: string;
     firstName?: string;
     lastName?: string;
-    role: 'user' | 'admin';
-    plan: 'free' | 'premium' | 'pro';
+    role: "user" | "admin";
+    plan: "free" | "premium" | "pro";
   };
 };
 
 const routines = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Get user's routines
-routines.get('/', async (c) => {
+routines.get("/", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     const userRoutines = await getUserRoutines(sql, dbUser.id);
@@ -41,29 +45,28 @@ routines.get('/', async (c) => {
       success: true,
       data: userRoutines,
     });
-
   } catch (error) {
-    console.error('Get routines error:', error);
+    console.error("Get routines error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to get routines' });
+    throw new HTTPException(500, { message: "Failed to get routines" });
   }
 });
 
 // Get specific routine with exercises
-routines.get('/:id', async (c) => {
+routines.get("/:id", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
-    const routineId = c.req.param('id');
+    const routineId = c.req.param("id");
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Get routine with ownership check
@@ -74,7 +77,7 @@ routines.get('/:id', async (c) => {
     `;
 
     if ((routine as any[]).length === 0) {
-      throw new HTTPException(404, { message: 'Routine not found' });
+      throw new HTTPException(404, { message: "Routine not found" });
     }
 
     // Get routine data if it's AI-generated
@@ -86,7 +89,7 @@ routines.get('/:id', async (c) => {
       const aiRoutineData = JSON.parse(routineDetails.routine_data);
       fullRoutine = {
         ...routineDetails,
-        aiGenerated: aiRoutineData
+        aiGenerated: aiRoutineData,
       };
     }
 
@@ -94,34 +97,33 @@ routines.get('/:id', async (c) => {
       success: true,
       data: fullRoutine,
     });
-
   } catch (error) {
-    console.error('Get routine error:', error);
+    console.error("Get routine error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to get routine' });
+    throw new HTTPException(500, { message: "Failed to get routine" });
   }
 });
 
 // Create new routine
-routines.post('/', async (c) => {
+routines.post("/", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
     const routineData = await c.req.json();
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Validate required fields
     if (!routineData.name) {
-      throw new HTTPException(400, { message: 'Routine name is required' });
+      throw new HTTPException(400, { message: "Routine name is required" });
     }
 
     // Create routine
@@ -135,7 +137,7 @@ routines.post('/', async (c) => {
         ${dbUser.id},
         ${routineData.name},
         ${routineData.description || null},
-        ${routineData.difficulty || 'intermediate'},
+        ${routineData.difficulty || "intermediate"},
         ${routineData.estimatedDuration || null},
         ${routineData.targetMuscleGroups || null},
         ${routineData.equipmentNeeded || null},
@@ -145,35 +147,37 @@ routines.post('/', async (c) => {
       RETURNING *
     `;
 
-    return c.json({
-      success: true,
-      data: newRoutine[0],
-      message: 'Rutina creada exitosamente',
-    }, 201);
-
+    return c.json(
+      {
+        success: true,
+        data: newRoutine[0],
+        message: "Rutina creada exitosamente",
+      },
+      201
+    );
   } catch (error) {
-    console.error('Create routine error:', error);
+    console.error("Create routine error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to create routine' });
+    throw new HTTPException(500, { message: "Failed to create routine" });
   }
 });
 
 // Update routine
-routines.put('/:id', async (c) => {
+routines.put("/:id", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
-    const routineId = c.req.param('id');
+    const routineId = c.req.param("id");
     const updateData = await c.req.json();
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Check ownership
@@ -184,7 +188,7 @@ routines.put('/:id', async (c) => {
     `;
 
     if ((existingRoutine as any[]).length === 0) {
-      throw new HTTPException(404, { message: 'Routine not found' });
+      throw new HTTPException(404, { message: "Routine not found" });
     }
 
     // Update routine
@@ -205,31 +209,30 @@ routines.put('/:id', async (c) => {
     return c.json({
       success: true,
       data: updatedRoutine[0],
-      message: 'Rutina actualizada exitosamente',
+      message: "Rutina actualizada exitosamente",
     });
-
   } catch (error) {
-    console.error('Update routine error:', error);
+    console.error("Update routine error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to update routine' });
+    throw new HTTPException(500, { message: "Failed to update routine" });
   }
 });
 
 // Delete routine (soft delete)
-routines.delete('/:id', async (c) => {
+routines.delete("/:id", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
-    const routineId = c.req.param('id');
+    const routineId = c.req.param("id");
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Check ownership and soft delete
@@ -241,36 +244,35 @@ routines.delete('/:id', async (c) => {
     `;
 
     if ((deletedRoutine as any[]).length === 0) {
-      throw new HTTPException(404, { message: 'Routine not found' });
+      throw new HTTPException(404, { message: "Routine not found" });
     }
 
     return c.json({
       success: true,
-      message: 'Rutina eliminada exitosamente',
+      message: "Rutina eliminada exitosamente",
     });
-
   } catch (error) {
-    console.error('Delete routine error:', error);
+    console.error("Delete routine error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to delete routine' });
+    throw new HTTPException(500, { message: "Failed to delete routine" });
   }
 });
 
 // Start workout from routine
-routines.post('/:id/start-workout', async (c) => {
+routines.post("/:id/start-workout", async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (!authUser) {
-      throw new HTTPException(401, { message: 'User not authenticated' });
+      throw new HTTPException(401, { message: "User not authenticated" });
     }
 
-    const routineId = c.req.param('id');
+    const routineId = c.req.param("id");
     const sql = createDatabaseClient(c.env.DATABASE_URL);
     const dbUser = await getUserByClerkId(sql, authUser.userId);
     if (!dbUser) {
-      throw new HTTPException(404, { message: 'User profile not found' });
+      throw new HTTPException(404, { message: "User profile not found" });
     }
 
     // Get routine with ownership check
@@ -281,7 +283,7 @@ routines.post('/:id/start-workout', async (c) => {
     `;
 
     if ((routine as any[]).length === 0) {
-      throw new HTTPException(404, { message: 'Routine not found' });
+      throw new HTTPException(404, { message: "Routine not found" });
     }
 
     // Create workout session
@@ -291,18 +293,20 @@ routines.post('/:id/start-workout', async (c) => {
       RETURNING *
     `;
 
-    return c.json({
-      success: true,
-      data: workoutSession[0],
-      message: 'Entrenamiento iniciado',
-    }, 201);
-
+    return c.json(
+      {
+        success: true,
+        data: workoutSession[0],
+        message: "Entrenamiento iniciado",
+      },
+      201
+    );
   } catch (error) {
-    console.error('Start workout error:', error);
+    console.error("Start workout error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to start workout' });
+    throw new HTTPException(500, { message: "Failed to start workout" });
   }
 });
 

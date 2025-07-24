@@ -1,11 +1,11 @@
-import '@testing-library/jest-dom';
-import { beforeAll, afterEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import "@testing-library/jest-dom";
+import { cleanup } from "@testing-library/react";
+import { afterEach, beforeAll } from "vitest";
 
 // Setup test environment
 beforeAll(() => {
   // Mock Next.js router
-  Object.defineProperty(window, 'matchMedia', {
+  Object.defineProperty(window, "matchMedia", {
     writable: true,
     value: (query: string) => ({
       matches: false,
@@ -22,10 +22,8 @@ beforeAll(() => {
   // Mock IntersectionObserver
   global.IntersectionObserver = class MockIntersectionObserver {
     root = null;
-    rootMargin = '';
+    rootMargin = "";
     thresholds = [];
-    
-    constructor() {}
     observe() {
       return null;
     }
@@ -42,7 +40,6 @@ beforeAll(() => {
 
   // Mock ResizeObserver
   global.ResizeObserver = class ResizeObserver {
-    constructor() {}
     observe() {
       return null;
     }

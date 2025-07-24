@@ -1,0 +1,1074 @@
+openapi: 3.0.3
+info:
+  title: FitAI API
+  description: |
+    API completa para FitAI - Aplicación de fitness con IA para el mercado chileno.
+    
+    ## Autenticación
+    La mayoría de endpoints requieren autenticación mediante Clerk. Include el token en el header:
+    ```
+    Authorization: Bearer YOUR_CLERK_TOKEN
+    ```
+    
+    ## Planes de Suscripción
+    - **Free**: Funcionalidades básicas
+    - **Premium**: IA avanzada, analytics, social features ($7,990 CLP/mes)
+    - **Pro**: Todas las funcionalidades premium + análisis avanzado ($14,990 CLP/mes)
+    
+    ## Rate Limits
+    - API general: 1000 requests/hour
+    - IA features:
+      - Free: 3 rutinas, 10 consejos por día
+      - Premium: 15 rutinas, 50 consejos por día  
+      - Pro: 50 rutinas, 200 consejos por día
+  version: 1.0.0
+  contact:
+    name: FitAI Support
+    email: support@fitai.cl
+  license:
+    name: Proprietary
+servers:
+  - url: https://api.getfitia.com
+    description: Production server
+  - url: https://fitai-api.sweetspot-627.workers.dev
+    description: Development server
+
+# Security schemes
+components:
+  securitySchemes:
+    ClerkAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Clerk authentication token
+  
+  schemas:
+    # Common schemas
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+    
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "ValidationError"
+        message:
+          type: string
+          example: "Invalid input data"
+        path:
+          type: string
+          example: "/api/v1/users/me"
+    
+    PaginationResponse:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 5
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
+    
+    # User schemas
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "user_123"
+        clerkUserId:
+          type: string
+          example: "clerk_456"
+        email:
+          type: string
+          example: "usuario@example.com"
+        name:
+          type: string
+          example: "Juan Pérez"
+        plan:
+          type: string
+          enum: [free, premium, pro]
+          example: "premium"
+        role:
+          type: string
+          enum: [user, admin]
+          example: "user"
+        profile:
+          $ref: '#/components/schemas/UserProfileData'
+        stats:
+          $ref: '#/components/schemas/UserStats'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    
+    UserProfileData:
+      type: object
+      properties:
+        goals:
+          type: array
+          items:
+            type: string
+          example: ["muscle_gain", "strength"]
+        experienceLevel:
+          type: string
+          enum: [beginner, intermediate, advanced]
+          example: "intermediate"
+        availableDays:
+          type: integer
+          minimum: 1
+          maximum: 7
+          example: 4
+        height:
+          type: number
+          example: 175
+        weight:
+          type: number
+          example: 70
+        age:
+          type: integer
+          example: 25
+        equipment:
+          type: array
+          items:
+            type: string
+          example: ["dumbbell", "barbell"]
+        workoutLocation:
+          type: string
+          example: "gym"
+        injuries:
+          type: array
+          items:
+            type: string
+          example: []
+    
+    UserStats:
+      type: object
+      properties:
+        workoutsCompleted:
+          type: integer
+          example: 45
+        currentStreak:
+          type: integer
+          example: 7
+        prsSet:
+          type: integer
+          example: 12
+    
+    # Exercise schemas
+    Exercise:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "ex_123"
+        name:
+          type: string
+          example: "Bench Press"
+        nameEs:
+          type: string
+          example: "Press de Banca"
+        category:
+          type: string
+          example: "strength"
+        muscleGroups:
+          type: array
+          items:
+            type: string
+          example: ["chest", "triceps"]
+        equipment:
+          type: string
+          example: "barbell"
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+          example: "intermediate"
+        instructions:
+          type: array
+          items:
+            type: string
+        instructionsEs:
+          type: array
+          items:
+            type: string
+        tips:
+          type: array
+          items:
+            type: string
+        videoUrl:
+          type: string
+          format: uri
+        imageUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+    
+    # Workout schemas
+    WorkoutSession:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "workout_123"
+        userId:
+          type: string
+          example: "user_123"
+        routineId:
+          type: string
+          example: "routine_123"
+        name:
+          type: string
+          example: "Chest & Triceps"
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+          example: 65
+        totalVolumeKg:
+          type: number
+          example: 2500.5
+        averageRpe:
+          type: number
+          example: 7.5
+        notes:
+          type: string
+        mood:
+          type: string
+          enum: [terrible, bad, okay, good, amazing]
+          example: "good"
+    
+    WorkoutSet:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "set_123"
+        workoutSessionId:
+          type: string
+          example: "workout_123"
+        exerciseId:
+          type: string
+          example: "ex_123"
+        setNumber:
+          type: integer
+          example: 1
+        reps:
+          type: integer
+          example: 10
+        weightKg:
+          type: number
+          example: 80.5
+        restTimeSeconds:
+          type: integer
+          example: 120
+        rpe:
+          type: number
+          minimum: 1
+          maximum: 10
+          example: 8
+        notes:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+    
+    # Routine schemas
+    Routine:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "routine_123"
+        userId:
+          type: string
+          example: "user_123"
+        name:
+          type: string
+          example: "Push Pull Legs"
+        description:
+          type: string
+          example: "Rutina de 3 días enfocada en fuerza"
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+          example: "intermediate"
+        durationWeeks:
+          type: integer
+          example: 8
+        daysPerWeek:
+          type: integer
+          example: 3
+        goals:
+          type: array
+          items:
+            type: string
+          example: ["strength", "muscle_gain"]
+        equipmentNeeded:
+          type: array
+          items:
+            type: string
+          example: ["barbell", "dumbbell"]
+        generatedByAi:
+          type: boolean
+          example: true
+        isActive:
+          type: boolean
+          example: true
+    
+    # AI schemas
+    AIGenerateRoutineRequest:
+      type: object
+      required:
+        - preferences
+      properties:
+        preferences:
+          type: object
+          properties:
+            goals:
+              type: array
+              items:
+                type: string
+              example: ["muscle_gain", "strength"]
+            experienceLevel:
+              type: string
+              enum: [beginner, intermediate, advanced]
+              example: "intermediate"
+            availableDays:
+              type: integer
+              minimum: 1
+              maximum: 7
+              example: 4
+            availableEquipment:
+              type: array
+              items:
+                type: string
+              example: ["barbell", "dumbbell"]
+            timePerWorkout:
+              type: integer
+              example: 60
+    
+    AIGeneratedRoutine:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "routine_ai_123"
+        name:
+          type: string
+          example: "Rutina Personalizada IA"
+        description:
+          type: string
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        estimatedDuration:
+          type: integer
+          example: 60
+        targetMuscleGroups:
+          type: array
+          items:
+            type: string
+        equipmentNeeded:
+          type: array
+          items:
+            type: string
+        workouts:
+          type: array
+          items:
+            type: object
+            properties:
+              day:
+                type: integer
+              name:
+                type: string
+              exercises:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    exerciseId:
+                      type: string
+                    sets:
+                      type: integer
+                    reps:
+                      type: string
+                    weight:
+                      type: string
+                    notes:
+                      type: string
+        aiAnalysis:
+          type: object
+          properties:
+            reasoning:
+              type: string
+            progressionPlan:
+              type: string
+            tips:
+              type: array
+              items:
+                type: string
+    
+    # Payment schemas
+    SubscriptionPlan:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "premium"
+        name:
+          type: string
+          example: "Premium"
+        priceClp:
+          type: integer
+          example: 7990
+        billingCycle:
+          type: string
+          enum: [monthly, yearly]
+          example: "monthly"
+        features:
+          type: array
+          items:
+            type: string
+          example: ["AI rutinas avanzadas", "Analytics premium"]
+        limits:
+          type: object
+          properties:
+            aiRoutinesPerDay:
+              type: integer
+              example: 15
+            coachingRequestsPerDay:
+              type: integer
+              example: 50
+    
+    CreateSubscriptionRequest:
+      type: object
+      required:
+        - planId
+        - billingCycle
+        - firstName
+        - lastName
+      properties:
+        planId:
+          type: string
+          example: "premium"
+        billingCycle:
+          type: string
+          enum: [monthly, yearly]
+          example: "monthly"
+        firstName:
+          type: string
+          example: "Juan"
+        lastName:
+          type: string
+          example: "Pérez"
+
+# Security applied globally
+security:
+  - ClerkAuth: []
+
+paths:
+  # Health endpoints
+  /:
+    get:
+      tags:
+        - Health
+      summary: API Health Check
+      description: Endpoint principal de verificación de estado de la API
+      security: []
+      responses:
+        '200':
+          description: API funcionando correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: "FitAI API"
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  status:
+                    type: string
+                    example: "healthy"
+                  environment:
+                    type: string
+                    example: "production"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Simple Health Status
+      description: Verificación simple de estado
+      security: []
+      responses:
+        '200':
+          description: Estado del servicio
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  # Users endpoints
+  /api/v1/users/me:
+    get:
+      tags:
+        - Users
+      summary: Get Current User Profile
+      description: Obtiene el perfil completo del usuario actual con estadísticas
+      responses:
+        '200':
+          description: Perfil del usuario obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Usuario no autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Perfil de usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Users
+      summary: Update User Profile
+      description: Actualiza el perfil del usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Juan Pérez Actualizado"
+                profile:
+                  $ref: '#/components/schemas/UserProfileData'
+      responses:
+        '200':
+          description: Perfil actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      message:
+                        example: "Perfil actualizado exitosamente"
+        '400':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Users
+      summary: Delete User Account
+      description: Elimina la cuenta del usuario (soft delete)
+      responses:
+        '200':
+          description: Cuenta eliminada exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      message:
+                        example: "Cuenta eliminada exitosamente"
+
+  /api/v1/users/me/progress:
+    get:
+      tags:
+        - Users
+      summary: Get User Progress Metrics
+      description: Obtiene métricas de progreso del usuario
+      parameters:
+        - name: period
+          in: query
+          description: Período de tiempo para las métricas
+          schema:
+            type: string
+            enum: [last_7_days, last_30_days, last_90_days]
+            default: last_30_days
+      responses:
+        '200':
+          description: Métricas de progreso obtenidas exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          period:
+                            type: string
+                            example: "last_30_days"
+                          metrics:
+                            type: object
+                            properties:
+                              totalWorkouts:
+                                type: integer
+                                example: 12
+                              avgWorkoutDuration:
+                                type: integer
+                                example: 65
+                              totalVolume:
+                                type: number
+                                example: 8500
+                              avgRPE:
+                                type: string
+                                example: "7.2"
+                              consistencyScore:
+                                type: integer
+                                example: 87
+                          personalRecords:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                exerciseId:
+                                  type: string
+                                exerciseName:
+                                  type: string
+                                recordType:
+                                  type: string
+                                value:
+                                  type: number
+                                unit:
+                                  type: string
+                                achievedAt:
+                                  type: string
+                                  format: date-time
+                          weeklyFrequency:
+                            type: object
+                            properties:
+                              target:
+                                type: integer
+                              actual:
+                                type: string
+                              days:
+                                type: array
+                                items:
+                                  type: boolean
+
+  /api/v1/users/me/preferences:
+    put:
+      tags:
+        - Users
+      summary: Update User Preferences
+      description: Actualiza las preferencias del usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                language:
+                  type: string
+                  example: "es"
+                units:
+                  type: string
+                  enum: [metric, imperial]
+                  example: "metric"
+                notifications:
+                  type: object
+                  properties:
+                    workouts:
+                      type: boolean
+                    achievements:
+                      type: boolean
+                    social:
+                      type: boolean
+      responses:
+        '200':
+          description: Preferencias actualizadas exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      message:
+                        example: "Preferencias actualizadas exitosamente"
+
+  # Exercises endpoints
+  /api/v1/exercises:
+    get:
+      tags:
+        - Exercises
+      summary: Get All Exercises
+      description: Obtiene el catálogo completo de ejercicios (público)
+      security: []
+      parameters:
+        - name: category
+          in: query
+          description: Filtrar por categoría
+          schema:
+            type: string
+        - name: muscle_group
+          in: query
+          description: Filtrar por grupo muscular
+          schema:
+            type: string
+        - name: equipment
+          in: query
+          description: Filtrar por equipamiento
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          description: Filtrar por dificultad
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+        - name: limit
+          in: query
+          description: Número máximo de resultados
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          description: Número de resultados a omitir
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Lista de ejercicios obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Exercise'
+                      pagination:
+                        $ref: '#/components/schemas/PaginationResponse'
+
+  /api/v1/exercises/{id}:
+    get:
+      tags:
+        - Exercises
+      summary: Get Exercise by ID
+      description: Obtiene un ejercicio específico por su ID
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID del ejercicio
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ejercicio obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Exercise'
+        '404':
+          description: Ejercicio no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # AI endpoints
+  /api/v1/ai/generate-routine:
+    post:
+      tags:
+        - AI
+      summary: Generate Personalized Routine
+      description: Genera una rutina personalizada usando IA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIGenerateRoutineRequest'
+      responses:
+        '200':
+          description: Rutina generada exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AIGeneratedRoutine'
+        '429':
+          description: Límite de uso diario alcanzado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/ai/coaching-advice:
+    post:
+      tags:
+        - AI
+      summary: Get Coaching Advice
+      description: Obtiene consejos de entrenamiento basados en rendimiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workoutData:
+                  type: object
+                  description: Datos del entrenamiento para análisis
+      responses:
+        '200':
+          description: Consejo generado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          advice:
+                            type: string
+                            example: "Excelente trabajo! Considera aumentar el peso en el próximo entrenamiento."
+                          recommendations:
+                            type: array
+                            items:
+                              type: string
+
+  # Payments endpoints
+  /api/v1/payments/plans:
+    get:
+      tags:
+        - Payments
+      summary: Get Subscription Plans
+      description: Obtiene los planes de suscripción disponibles
+      security: []
+      responses:
+        '200':
+          description: Planes obtenidos exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SubscriptionPlan'
+
+  /api/v1/payments/create-subscription:
+    post:
+      tags:
+        - Payments
+      summary: Create Subscription
+      description: Crea una nueva suscripción con MercadoPago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+      responses:
+        '200':
+          description: Suscripción creada exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          preferenceId:
+                            type: string
+                            example: "123456789-abcd-1234-5678-123456789abc"
+                          initPoint:
+                            type: string
+                            format: uri
+                            example: "https://www.mercadopago.cl/checkout/v1/redirect?pref_id=123456789"
+
+  # Webhooks endpoints
+  /api/v1/webhooks/clerk:
+    post:
+      tags:
+        - Webhooks
+      summary: Clerk User Management Webhook
+      description: Webhook para sincronización de usuarios con Clerk
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  example: "user.created"
+                data:
+                  type: object
+      responses:
+        '200':
+          description: Webhook procesado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/v1/webhooks/mercadopago:
+    post:
+      tags:
+        - Webhooks
+      summary: MercadoPago Payment Webhook
+      description: Webhook para notificaciones de pago de MercadoPago
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  example: "payment.updated"
+                api_version:
+                  type: string
+                  example: "v1"
+                data:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                date_created:
+                  type: string
+                  format: date-time
+                id:
+                  type: integer
+                live_mode:
+                  type: boolean
+                type:
+                  type: string
+                  example: "payment"
+                user_id:
+                  type: string
+      responses:
+        '200':
+          description: Webhook procesado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+tags:
+  - name: Health
+    description: Endpoints de estado y salud de la API
+  - name: Users
+    description: Gestión de perfiles y datos de usuario
+  - name: Exercises
+    description: Catálogo de ejercicios
+  - name: Workouts
+    description: Sesiones de entrenamiento y logging
+  - name: Routines
+    description: Rutinas de entrenamiento
+  - name: AI
+    description: Funcionalidades de inteligencia artificial
+  - name: Premium AI
+    description: Funcionalidades IA avanzadas (Premium/Pro)
+  - name: Payments
+    description: Suscripciones y pagos con MercadoPago
+  - name: Health Data
+    description: Integración con datos de salud y HealthKit
+  - name: Social
+    description: Funcionalidades sociales y comunidad
+  - name: Analytics
+    description: Analytics y reportes de progreso
+  - name: Webhooks
+    description: Webhooks para integraciones externas

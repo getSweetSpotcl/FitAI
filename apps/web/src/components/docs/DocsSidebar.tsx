@@ -1,20 +1,21 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { 
-  BookOpen,
-  ChevronDown,
-  ChevronRight,
-  Home,
-  Play,
-  Brain,
-  Watch,
+import {
   BarChart3,
+  BookOpen,
+  Brain,
+  ChevronRight,
   Code,
   HelpCircle,
+  Home,
   Menu,
-  X
-} from 'lucide-react';
+  Play,
+  Watch,
+  X,
+} from "lucide-react";
+import type React from "react";
+import { useState } from "react";
+
 // import { usePathname } from 'next/navigation';
 
 interface NavItem {
@@ -26,82 +27,82 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   {
-    title: 'Inicio',
-    href: '/docs',
+    title: "Inicio",
+    href: "/docs",
     icon: Home,
   },
   {
-    title: 'Inicio Rápido',
-    href: '/docs/quickstart',
+    title: "Inicio Rápido",
+    href: "/docs/quickstart",
     icon: Play,
     children: [
-      { title: 'Instalación', href: '/docs/quickstart/installation' },
-      { title: 'Primer Entrenamiento', href: '/docs/quickstart/first-workout' },
-      { title: 'Configuración Básica', href: '/docs/quickstart/setup' },
+      { title: "Instalación", href: "/docs/quickstart/installation" },
+      { title: "Primer Entrenamiento", href: "/docs/quickstart/first-workout" },
+      { title: "Configuración Básica", href: "/docs/quickstart/setup" },
     ],
   },
   {
-    title: 'Guía de Usuario',
-    href: '/docs/guide',
+    title: "Guía de Usuario",
+    href: "/docs/guide",
     icon: BookOpen,
     children: [
-      { title: 'Navegación', href: '/docs/guide/navigation' },
-      { title: 'Registro de Entrenamientos', href: '/docs/guide/workouts' },
-      { title: 'Seguimiento de Progreso', href: '/docs/guide/progress' },
-      { title: 'Perfil y Configuración', href: '/docs/guide/profile' },
+      { title: "Navegación", href: "/docs/guide/navigation" },
+      { title: "Registro de Entrenamientos", href: "/docs/guide/workouts" },
+      { title: "Seguimiento de Progreso", href: "/docs/guide/progress" },
+      { title: "Perfil y Configuración", href: "/docs/guide/profile" },
     ],
   },
   {
-    title: 'Funciones IA',
-    href: '/docs/ai',
+    title: "Funciones IA",
+    href: "/docs/ai",
     icon: Brain,
     children: [
-      { title: 'Generación de Rutinas', href: '/docs/ai/routines' },
-      { title: 'Coach Personal', href: '/docs/ai/coach' },
-      { title: 'Recomendaciones', href: '/docs/ai/recommendations' },
-      { title: 'Créditos y Costos', href: '/docs/ai/credits' },
+      { title: "Generación de Rutinas", href: "/docs/ai/routines" },
+      { title: "Coach Personal", href: "/docs/ai/coach" },
+      { title: "Recomendaciones", href: "/docs/ai/recommendations" },
+      { title: "Créditos y Costos", href: "/docs/ai/credits" },
     ],
   },
   {
-    title: 'Apple Watch',
-    href: '/docs/apple-watch',
+    title: "Apple Watch",
+    href: "/docs/apple-watch",
     icon: Watch,
     children: [
-      { title: 'Configuración', href: '/docs/apple-watch/setup' },
-      { title: 'Entrenamientos', href: '/docs/apple-watch/workouts' },
-      { title: 'Sincronización', href: '/docs/apple-watch/sync' },
+      { title: "Configuración", href: "/docs/apple-watch/setup" },
+      { title: "Entrenamientos", href: "/docs/apple-watch/workouts" },
+      { title: "Sincronización", href: "/docs/apple-watch/sync" },
     ],
   },
   {
-    title: 'Premium Features',
-    href: '/docs/premium',
+    title: "Premium Features",
+    href: "/docs/premium",
     icon: BarChart3,
     children: [
-      { title: 'Analytics Avanzados', href: '/docs/premium/analytics' },
-      { title: 'Reportes', href: '/docs/premium/reports' },
-      { title: 'Funciones Sociales', href: '/docs/premium/social' },
-      { title: 'Suscripciones', href: '/docs/premium/subscriptions' },
+      { title: "Analytics Avanzados", href: "/docs/premium/analytics" },
+      { title: "Reportes", href: "/docs/premium/reports" },
+      { title: "Funciones Sociales", href: "/docs/premium/social" },
+      { title: "Suscripciones", href: "/docs/premium/subscriptions" },
     ],
   },
   {
-    title: 'API Reference',
-    href: '/docs/api',
+    title: "API Reference",
+    href: "/docs/api",
     icon: Code,
     children: [
-      { title: 'Autenticación', href: '/docs/api/auth' },
-      { title: 'Usuarios', href: '/docs/api/users' },
-      { title: 'Entrenamientos', href: '/docs/api/workouts' },
-      { title: 'IA', href: '/docs/api/ai' },
+      { title: "Autenticación", href: "/docs/api/auth" },
+      { title: "Usuarios", href: "/docs/api/users" },
+      { title: "Entrenamientos", href: "/docs/api/workouts" },
+      { title: "IA", href: "/docs/api/ai" },
     ],
   },
   {
-    title: 'Soporte',
-    href: '/docs/support',
+    title: "Soporte",
+    href: "/docs/support",
     icon: HelpCircle,
     children: [
-      { title: 'FAQ', href: '/docs/support/faq' },
-      { title: 'Contacto', href: '/docs/support/contact' },
-      { title: 'Reportar Bug', href: '/docs/support/bug-report' },
+      { title: "FAQ", href: "/docs/support/faq" },
+      { title: "Contacto", href: "/docs/support/contact" },
+      { title: "Reportar Bug", href: "/docs/support/bug-report" },
     ],
   },
 ];
@@ -111,15 +112,15 @@ interface DocsSidebarProps {
 }
 
 export const DocsSidebar: React.FC<DocsSidebarProps> = ({ className }) => {
-  const [expandedItems, setExpandedItems] = useState<string[]>(['/docs/guide']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(["/docs/guide"]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // const pathname = usePathname();
-  const pathname = '/';
+  const pathname = "/";
 
   const toggleExpanded = (href: string) => {
-    setExpandedItems(prev => 
-      prev.includes(href) 
-        ? prev.filter(item => item !== href)
+    setExpandedItems((prev) =>
+      prev.includes(href)
+        ? prev.filter((item) => item !== href)
         : [...prev, href]
     );
   };
@@ -129,10 +130,19 @@ export const DocsSidebar: React.FC<DocsSidebarProps> = ({ className }) => {
   };
 
   const isParentActive = (item: NavItem) => {
-    return item.children?.some(child => isActive(child.href)) || isActive(item.href);
+    return (
+      item.children?.some((child) => isActive(child.href)) ||
+      isActive(item.href)
+    );
   };
 
-  const NavItems = ({ items, level = 0 }: { items: NavItem[], level?: number }) => (
+  const NavItems = ({
+    items,
+    level = 0,
+  }: {
+    items: NavItem[];
+    level?: number;
+  }) => (
     <ul className="space-y-1">
       {items.map((item) => {
         const Icon = item.icon;
@@ -156,16 +166,18 @@ export const DocsSidebar: React.FC<DocsSidebarProps> = ({ className }) => {
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all group ${
                   isItemActive
-                    ? 'bg-orange-500/20 text-orange-400 font-medium'
+                    ? "bg-orange-500/20 text-orange-400 font-medium"
                     : isParentItemActive
-                    ? 'text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                } ${level > 0 ? 'ml-4' : ''}`}
+                      ? "text-white"
+                      : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                } ${level > 0 ? "ml-4" : ""}`}
               >
                 {Icon && <Icon className="w-4 h-4 flex-shrink-0" />}
                 <span className="flex-1 text-left">{item.title}</span>
                 {hasChildren && (
-                  <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                  <div
+                    className={`transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+                  >
                     <ChevronRight className="w-4 h-4" />
                   </div>
                 )}
@@ -200,9 +212,13 @@ export const DocsSidebar: React.FC<DocsSidebarProps> = ({ className }) => {
       </button>
 
       {/* Sidebar */}
-      <aside className={`fixed lg:sticky top-0 left-0 z-40 h-screen lg:h-auto lg:max-h-screen bg-gray-900 lg:bg-transparent border-r border-gray-800 lg:border-none transition-transform duration-300 ${
-        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      } ${className}`}>
+      <aside
+        className={`fixed lg:sticky top-0 left-0 z-40 h-screen lg:h-auto lg:max-h-screen bg-gray-900 lg:bg-transparent border-r border-gray-800 lg:border-none transition-transform duration-300 ${
+          isMobileMenuOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0"
+        } ${className}`}
+      >
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-6 lg:p-4 border-b border-gray-800 lg:border-none">

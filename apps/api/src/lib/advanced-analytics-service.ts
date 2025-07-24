@@ -1,20 +1,17 @@
-import { DatabaseClient } from '../db/database';
-import {
-  UserAnalyticsSnapshot,
-  ProgressPrediction,
-  WorkoutInsight,
-  PerformanceTrend,
-  UserAchievement,
-  UserComparison,
+import type { DatabaseClient } from "../db/database";
+import type {
+  ChartData,
+  ChartDataPoint,
   DashboardAnalytics,
+  PeriodType,
+  ProgressPrediction,
   TrendAnalysisResult,
   TrendDirection,
-  PeriodType,
-  InsightType,
-  AchievementType,
-  ChartData,
-  ChartDataPoint
-} from '../types/analytics';
+  UserAchievement,
+  UserAnalyticsSnapshot,
+  UserComparison,
+  WorkoutInsight,
+} from "../types/analytics";
 
 export class AdvancedAnalyticsService {
   constructor(private sql: DatabaseClient) {}
@@ -22,24 +19,31 @@ export class AdvancedAnalyticsService {
   /**
    * Generate comprehensive dashboard analytics for a user
    */
-  async generateDashboardAnalytics(userId: string): Promise<DashboardAnalytics> {
+  async generateDashboardAnalytics(
+    userId: string
+  ): Promise<DashboardAnalytics> {
     try {
       // Get current and previous periods
       const [currentPeriod, previousPeriod] = await Promise.all([
-        this.getLatestSnapshot(userId, 'monthly'),
-        this.getPreviousSnapshot(userId, 'monthly')
+        this.getLatestSnapshot(userId, "monthly"),
+        this.getPreviousSnapshot(userId, "monthly"),
       ]);
 
       // Get supporting data
-      const [insights, predictions, achievements, comparisons] = await Promise.all([
-        this.getRecentInsights(userId, 10),
-        this.getUserPredictions(userId),
-        this.getRecentAchievements(userId, 5),
-        this.getUserComparisons(userId)
-      ]);
+      const [insights, predictions, achievements, comparisons] =
+        await Promise.all([
+          this.getRecentInsights(userId, 10),
+          this.getUserPredictions(userId),
+          this.getRecentAchievements(userId, 5),
+          this.getUserComparisons(userId),
+        ]);
 
       // Calculate key metrics
-      const keyMetrics = await this.calculateKeyMetrics(userId, currentPeriod, previousPeriod);
+      const keyMetrics = await this.calculateKeyMetrics(
+        userId,
+        currentPeriod,
+        previousPeriod
+      );
 
       return {
         userId,
@@ -50,32 +54,61 @@ export class AdvancedAnalyticsService {
         predictions,
         recentAchievements: achievements,
         benchmarkComparisons: comparisons,
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
       };
-
     } catch (error) {
-      console.error('Generate dashboard analytics error:', error);
-      throw new Error('Failed to generate dashboard analytics');
+      console.error("Generate dashboard analytics error:", error);
+      throw new Error("Failed to generate dashboard analytics");
     }
   }
 
   /**
    * Create analytics snapshot for a period
    */
-  async createAnalyticsSnapshot(userId: string, periodType: PeriodType): Promise<UserAnalyticsSnapshot> {
+  async createAnalyticsSnapshot(
+    userId: string,
+    periodType: PeriodType
+  ): Promise<UserAnalyticsSnapshot> {
     try {
       const { startDate, endDate } = this.getPeriodDates(periodType);
-      
+
       // Calculate all metrics for this period
-      const workoutMetrics = await this.calculateWorkoutMetrics(userId, startDate, endDate);
-      const performanceMetrics = await this.calculatePerformanceMetrics(userId, startDate, endDate);
-      const healthMetrics = await this.calculateHealthMetrics(userId, startDate, endDate);
-      const bodyComposition = await this.calculateBodyCompositionChanges(userId, startDate, endDate);
-      const goalProgress = await this.calculateGoalProgress(userId, startDate, endDate);
-      const scores = await this.calculateCompositeScores(userId, startDate, endDate);
+      const workoutMetrics = await this.calculateWorkoutMetrics(
+        userId,
+        startDate,
+        endDate
+      );
+      const performanceMetrics = await this.calculatePerformanceMetrics(
+        userId,
+        startDate,
+        endDate
+      );
+      const healthMetrics = await this.calculateHealthMetrics(
+        userId,
+        startDate,
+        endDate
+      );
+      const bodyComposition = await this.calculateBodyCompositionChanges(
+        userId,
+        startDate,
+        endDate
+      );
+      const goalProgress = await this.calculateGoalProgress(
+        userId,
+        startDate,
+        endDate
+      );
+      const scores = await this.calculateCompositeScores(
+        userId,
+        startDate,
+        endDate
+      );
 
       // Create snapshot
-      const snapshot: Omit<UserAnalyticsSnapshot, 'id' | 'createdAt' | 'updatedAt'> = {
+      const snapshot: Omit<
+        UserAnalyticsSnapshot,
+        "id" | "createdAt" | "updatedAt"
+      > = {
         userId,
         periodType,
         periodStart: startDate,
@@ -85,7 +118,7 @@ export class AdvancedAnalyticsService {
         ...healthMetrics,
         ...bodyComposition,
         ...goalProgress,
-        ...scores
+        ...scores,
       };
 
       // Save to database
@@ -138,10 +171,9 @@ export class AdvancedAnalyticsService {
       `;
 
       return this.mapAnalyticsSnapshot((result as any[])[0]);
-
     } catch (error) {
-      console.error('Create analytics snapshot error:', error);
-      throw new Error('Failed to create analytics snapshot');
+      console.error("Create analytics snapshot error:", error);
+      throw new Error("Failed to create analytics snapshot");
     }
   }
 
@@ -152,11 +184,11 @@ export class AdvancedAnalyticsService {
     try {
       // Get historical data for key metrics
       const metrics = [
-        'overall_fitness_score',
-        'strength_pr_count',
-        'consistency_score',
-        'avg_recovery_score',
-        'total_volume_kg'
+        "overall_fitness_score",
+        "strength_pr_count",
+        "consistency_score",
+        "avg_recovery_score",
+        "total_volume_kg",
       ];
 
       const trends: TrendAnalysisResult[] = [];
@@ -168,17 +200,16 @@ export class AdvancedAnalyticsService {
 
       // Generate insights based on trends
       const insights = await this.generateTrendInsights(userId, trends);
-      
+
       // Save insights to database
       for (const insight of insights) {
         await this.saveWorkoutInsight(userId, insight);
       }
 
       return trends;
-
     } catch (error) {
-      console.error('Analyze trends error:', error);
-      throw new Error('Failed to analyze trends');
+      console.error("Analyze trends error:", error);
+      throw new Error("Failed to analyze trends");
     }
   }
 
@@ -207,52 +238,63 @@ export class AdvancedAnalyticsService {
       }
 
       return predictions;
-
     } catch (error) {
-      console.error('Generate predictions error:', error);
-      throw new Error('Failed to generate predictions');
+      console.error("Generate predictions error:", error);
+      throw new Error("Failed to generate predictions");
     }
   }
 
   /**
    * Generate chart data for visualization
    */
-  async generateChartData(userId: string, metric: string, period: PeriodType): Promise<ChartData> {
+  async generateChartData(
+    userId: string,
+    metric: string,
+    period: PeriodType
+  ): Promise<ChartData> {
     try {
       const { startDate, endDate } = this.getPeriodDates(period, 12); // Last 12 periods
-      
+
       // Get historical data
-      const data = await this.getMetricHistory(userId, metric, startDate, endDate, period);
-      
+      const data = await this.getMetricHistory(
+        userId,
+        metric,
+        startDate,
+        endDate,
+        period
+      );
+
       // Format as chart data
-      const chartData: ChartDataPoint[] = data.map(point => ({
-        date: point.date.toISOString().split('T')[0],
+      const chartData: ChartDataPoint[] = data.map((point) => ({
+        date: point.date.toISOString().split("T")[0],
         value: point.value,
-        label: this.formatMetricValue(point.value, metric)
+        label: this.formatMetricValue(point.value, metric),
       }));
 
       // Determine chart type based on metric
       const chartType = this.getChartType(metric);
-      
+
       return {
         title: this.getMetricDisplayName(metric),
         type: chartType,
         data: chartData,
         yAxis: {
           label: this.getMetricDisplayName(metric),
-          unit: this.getMetricUnit(metric)
-        }
+          unit: this.getMetricUnit(metric),
+        },
       };
-
     } catch (error) {
-      console.error('Generate chart data error:', error);
-      throw new Error('Failed to generate chart data');
+      console.error("Generate chart data error:", error);
+      throw new Error("Failed to generate chart data");
     }
   }
 
   // Private helper methods
 
-  private async getLatestSnapshot(userId: string, periodType: PeriodType): Promise<UserAnalyticsSnapshot | null> {
+  private async getLatestSnapshot(
+    userId: string,
+    periodType: PeriodType
+  ): Promise<UserAnalyticsSnapshot | null> {
     const result = await this.sql`
       SELECT * FROM user_analytics_snapshots
       WHERE user_id = ${userId} AND period_type = ${periodType}
@@ -260,10 +302,15 @@ export class AdvancedAnalyticsService {
       LIMIT 1
     `;
 
-    return (result as any[]).length > 0 ? this.mapAnalyticsSnapshot((result as any[])[0]) : null;
+    return (result as any[]).length > 0
+      ? this.mapAnalyticsSnapshot((result as any[])[0])
+      : null;
   }
 
-  private async getPreviousSnapshot(userId: string, periodType: PeriodType): Promise<UserAnalyticsSnapshot | null> {
+  private async getPreviousSnapshot(
+    userId: string,
+    periodType: PeriodType
+  ): Promise<UserAnalyticsSnapshot | null> {
     const result = await this.sql`
       SELECT * FROM user_analytics_snapshots
       WHERE user_id = ${userId} AND period_type = ${periodType}
@@ -271,10 +318,16 @@ export class AdvancedAnalyticsService {
       LIMIT 1 OFFSET 1
     `;
 
-    return (result as any[]).length > 0 ? this.mapAnalyticsSnapshot((result as any[])[0]) : null;
+    return (result as any[]).length > 0
+      ? this.mapAnalyticsSnapshot((result as any[])[0])
+      : null;
   }
 
-  private async calculateWorkoutMetrics(userId: string, startDate: Date, endDate: Date) {
+  private async calculateWorkoutMetrics(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ) {
     const result = await this.sql`
       SELECT 
         COUNT(*) as total_workouts,
@@ -290,7 +343,7 @@ export class AdvancedAnalyticsService {
     `;
 
     const data = (result as any[])[0];
-    
+
     // Calculate total volume from exercises
     const volumeResult = await this.sql`
       SELECT COALESCE(SUM(sets * reps * weight), 0) as total_volume
@@ -310,11 +363,15 @@ export class AdvancedAnalyticsService {
       totalVolumeKg: parseFloat(totalVolumeKg) || 0,
       avgWorkoutIntensity: parseFloat(data.avg_workout_intensity) || 0,
       totalCaloriesBurned: parseInt(data.total_calories_burned) || 0,
-      totalDistanceKm: parseFloat(data.total_distance_km) || 0
+      totalDistanceKm: parseFloat(data.total_distance_km) || 0,
     };
   }
 
-  private async calculatePerformanceMetrics(userId: string, startDate: Date, endDate: Date) {
+  private async calculatePerformanceMetrics(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ) {
     // Count personal records in this period
     const prResult = await this.sql`
       SELECT COUNT(*) as pr_count
@@ -327,7 +384,9 @@ export class AdvancedAnalyticsService {
     `;
 
     // Calculate consistency (workouts per week vs target)
-    const weeksBetween = Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    const weeksBetween = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
+    );
     const workoutsResult = await this.sql`
       SELECT COUNT(*) as total_workouts
       FROM workout_sessions
@@ -337,19 +396,27 @@ export class AdvancedAnalyticsService {
         AND status = 'completed'
     `;
 
-    const totalWorkouts = parseInt((workoutsResult as any[])[0].total_workouts) || 0;
+    const totalWorkouts =
+      parseInt((workoutsResult as any[])[0].total_workouts) || 0;
     const targetWorkoutsPerWeek = 3; // This could come from user profile
     const expectedWorkouts = weeksBetween * targetWorkoutsPerWeek;
-    const consistencyScore = expectedWorkouts > 0 ? Math.min(100, (totalWorkouts / expectedWorkouts) * 100) : 0;
+    const consistencyScore =
+      expectedWorkouts > 0
+        ? Math.min(100, (totalWorkouts / expectedWorkouts) * 100)
+        : 0;
 
     return {
       strengthPrCount: parseInt((prResult as any[])[0].pr_count) || 0,
       enduranceImprovements: 0, // TODO: Calculate endurance improvements
-      consistencyScore: Math.round(consistencyScore)
+      consistencyScore: Math.round(consistencyScore),
     };
   }
 
-  private async calculateHealthMetrics(userId: string, startDate: Date, endDate: Date) {
+  private async calculateHealthMetrics(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ) {
     // Get health metrics from health data
     const healthResult = await this.sql`
       SELECT 
@@ -388,11 +455,15 @@ export class AdvancedAnalyticsService {
       avgSleepHours: parseFloat(health?.avg_sleep_hours) || 0,
       avgSleepEfficiency: parseFloat(health?.avg_sleep_efficiency) || 0,
       avgHrvScore: parseFloat(hrv?.avg_hrv_score) || 0,
-      avgRestingHr: parseInt(hr?.avg_resting_hr) || 0
+      avgRestingHr: parseInt(hr?.avg_resting_hr) || 0,
     };
   }
 
-  private async calculateBodyCompositionChanges(userId: string, startDate: Date, endDate: Date) {
+  private async calculateBodyCompositionChanges(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ) {
     // Get weight change from health metrics
     const weightResult = await this.sql`
       WITH first_weight AS (
@@ -422,20 +493,28 @@ export class AdvancedAnalyticsService {
     return {
       weightChangeKg: parseFloat(weightChange) || 0,
       bodyFatChange: 0, // TODO: Calculate from body fat data
-      muscleMassChange: 0 // TODO: Calculate from muscle mass data
+      muscleMassChange: 0, // TODO: Calculate from muscle mass data
     };
   }
 
-  private async calculateGoalProgress(userId: string, startDate: Date, endDate: Date) {
+  private async calculateGoalProgress(
+    _userId: string,
+    _startDate: Date,
+    _endDate: Date
+  ) {
     // This would integrate with a goals system
     return {
       goalsAchieved: 0,
       goalsTotal: 0,
-      goalCompletionRate: 0
+      goalCompletionRate: 0,
     };
   }
 
-  private async calculateCompositeScores(userId: string, startDate: Date, endDate: Date) {
+  private async calculateCompositeScores(
+    _userId: string,
+    _startDate: Date,
+    _endDate: Date
+  ) {
     // Calculate overall fitness score (composite of multiple factors)
     const overallFitnessScore = 75; // TODO: Implement proper calculation
     const progressVelocity = 0.5; // TODO: Calculate rate of improvement
@@ -444,61 +523,77 @@ export class AdvancedAnalyticsService {
     return {
       overallFitnessScore,
       progressVelocity,
-      adherenceScore
+      adherenceScore,
     };
   }
 
-  private async calculateKeyMetrics(userId: string, current: UserAnalyticsSnapshot, previous?: UserAnalyticsSnapshot) {
-    const fitnessChange = previous ? current.overallFitnessScore - previous.overallFitnessScore : 0;
-    const workoutCompletionRate = current.totalWorkouts > 0 ? (current.totalWorkouts / (current.totalWorkouts + 2)) * 100 : 0; // Assuming some target
+  private async calculateKeyMetrics(
+    _userId: string,
+    current: UserAnalyticsSnapshot,
+    previous?: UserAnalyticsSnapshot
+  ) {
+    const fitnessChange = previous
+      ? current.overallFitnessScore - previous.overallFitnessScore
+      : 0;
+    const workoutCompletionRate =
+      current.totalWorkouts > 0
+        ? (current.totalWorkouts / (current.totalWorkouts + 2)) * 100
+        : 0; // Assuming some target
 
     return {
       fitnessScore: {
         current: current.overallFitnessScore,
         change: fitnessChange,
-        trend: this.getTrendFromChange(fitnessChange)
+        trend: this.getTrendFromChange(fitnessChange),
       },
       workoutFrequency: {
         current: current.totalWorkouts,
         target: 12, // 3 per week for monthly
-        completionRate: workoutCompletionRate
+        completionRate: workoutCompletionRate,
       },
       recoveryScore: {
         current: current.avgRecoveryScore,
-        trend: this.getTrendFromChange(previous ? current.avgRecoveryScore - previous.avgRecoveryScore : 0),
-        daysInOptimalRange: Math.round(current.avgRecoveryScore > 70 ? 20 : 10) // Estimate
+        trend: this.getTrendFromChange(
+          previous ? current.avgRecoveryScore - previous.avgRecoveryScore : 0
+        ),
+        daysInOptimalRange: Math.round(current.avgRecoveryScore > 70 ? 20 : 10), // Estimate
       },
       strengthProgress: {
         personalRecords: current.strengthPrCount,
-        totalVolumeIncrease: previous ? current.totalVolumeKg - previous.totalVolumeKg : 0,
-        topExerciseGains: [] // TODO: Implement
-      }
+        totalVolumeIncrease: previous
+          ? current.totalVolumeKg - previous.totalVolumeKg
+          : 0,
+        topExerciseGains: [], // TODO: Implement
+      },
     };
   }
 
   private getTrendFromChange(change: number): TrendDirection {
-    if (change > 5) return 'improving';
-    if (change < -5) return 'declining';
-    if (Math.abs(change) <= 2) return 'plateauing';
-    return 'volatile';
+    if (change > 5) return "improving";
+    if (change < -5) return "declining";
+    if (Math.abs(change) <= 2) return "plateauing";
+    return "volatile";
   }
 
-  private getPeriodDates(periodType: PeriodType, periodsBack: number = 1): { startDate: Date; endDate: Date } {
+  private getPeriodDates(
+    periodType: PeriodType,
+    periodsBack: number = 1
+  ): { startDate: Date; endDate: Date } {
     const now = new Date();
     const endDate = new Date(now);
     const startDate = new Date(now);
 
     switch (periodType) {
-      case 'weekly':
-        startDate.setDate(startDate.getDate() - (7 * periodsBack));
+      case "weekly":
+        startDate.setDate(startDate.getDate() - 7 * periodsBack);
         break;
-      case 'monthly':
+      case "monthly":
         startDate.setMonth(startDate.getMonth() - periodsBack);
         break;
-      case 'quarterly':
-        startDate.setMonth(startDate.getMonth() - (3 * periodsBack));
+      case "quarterly":
+        startDate.setMonth(startDate.getMonth() - 3 * periodsBack);
         break;
-      case 'yearly':
+      case "yearly":
         startDate.setFullYear(startDate.getFullYear() - periodsBack);
         break;
     }
@@ -506,7 +601,10 @@ export class AdvancedAnalyticsService {
     return { startDate, endDate };
   }
 
-  private async getRecentInsights(userId: string, limit: number): Promise<WorkoutInsight[]> {
+  private async getRecentInsights(
+    userId: string,
+    limit: number
+  ): Promise<WorkoutInsight[]> {
     const result = await this.sql`
       SELECT * FROM workout_insights
       WHERE user_id = ${userId}
@@ -519,7 +617,9 @@ export class AdvancedAnalyticsService {
     return (result as any[]).map(this.mapWorkoutInsight);
   }
 
-  private async getUserPredictions(userId: string): Promise<ProgressPrediction[]> {
+  private async getUserPredictions(
+    userId: string
+  ): Promise<ProgressPrediction[]> {
     const result = await this.sql`
       SELECT * FROM progress_predictions
       WHERE user_id = ${userId}
@@ -531,7 +631,10 @@ export class AdvancedAnalyticsService {
     return (result as any[]).map(this.mapProgressPrediction);
   }
 
-  private async getRecentAchievements(userId: string, limit: number): Promise<UserAchievement[]> {
+  private async getRecentAchievements(
+    userId: string,
+    limit: number
+  ): Promise<UserAchievement[]> {
     const result = await this.sql`
       SELECT * FROM user_achievements
       WHERE user_id = ${userId}
@@ -585,45 +688,51 @@ export class AdvancedAnalyticsService {
       progressVelocity: parseFloat(row.progress_velocity) || 0,
       adherenceScore: parseFloat(row.adherence_score) || 0,
       createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at)
+      updatedAt: new Date(row.updated_at),
     };
   }
 
   // Placeholder methods for full implementation
-  private async calculateMetricTrend(userId: string, metric: string): Promise<TrendAnalysisResult> {
+  private async calculateMetricTrend(
+    _userId: string,
+    metric: string
+  ): Promise<TrendAnalysisResult> {
     // TODO: Implement trend calculation
     return {
       metric,
-      trend: 'improving',
+      trend: "improving",
       confidence: 75,
       significantChange: true,
       changePercent: 15.5,
       projectedValue: 85,
-      recommendations: ['Keep up the great work!']
+      recommendations: ["Keep up the great work!"],
     };
   }
 
-  private async generateTrendInsights(userId: string, trends: TrendAnalysisResult[]): Promise<WorkoutInsight[]> {
+  private async generateTrendInsights(
+    _userId: string,
+    trends: TrendAnalysisResult[]
+  ): Promise<WorkoutInsight[]> {
     const insights: WorkoutInsight[] = [];
 
     for (const trend of trends) {
       if (trend.significantChange) {
         const insight: Partial<WorkoutInsight> = {
-          insightType: 'pattern',
-          insightCategory: 'performance',
+          insightType: "pattern",
+          insightCategory: "performance",
           title: this.getTrendInsightTitle(trend),
           description: this.getTrendInsightDescription(trend),
           insightData: {
             metric: trend.metric,
             changePercent: trend.changePercent,
             projectedValue: trend.projectedValue,
-            confidence: trend.confidence
+            confidence: trend.confidence,
           },
           importanceScore: Math.round(trend.confidence * 0.8),
           confidenceScore: trend.confidence,
           actionable: trend.recommendations.length > 0,
           detectedAt: new Date(),
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         };
         insights.push(insight as WorkoutInsight);
       }
@@ -632,7 +741,10 @@ export class AdvancedAnalyticsService {
     return insights;
   }
 
-  private async saveWorkoutInsight(userId: string, insight: Partial<WorkoutInsight>): Promise<void> {
+  private async saveWorkoutInsight(
+    userId: string,
+    insight: Partial<WorkoutInsight>
+  ): Promise<void> {
     await this.sql`
       INSERT INTO workout_insights (
         user_id, insight_type, insight_category, title, description,
@@ -642,13 +754,15 @@ export class AdvancedAnalyticsService {
         ${userId}, ${insight.insightType}, ${insight.insightCategory},
         ${insight.title}, ${insight.description}, ${JSON.stringify(insight.insightData)},
         ${insight.importanceScore}, ${insight.confidenceScore}, ${insight.actionable},
-        ${insight.detectedAt!.toISOString()}, ${insight.expiresAt?.toISOString() || null}
+        ${insight.detectedAt?.toISOString()}, ${insight.expiresAt?.toISOString() || null}
       )
       ON CONFLICT (user_id, title, detected_at) DO NOTHING
     `;
   }
 
-  private async predictStrengthProgress(userId: string): Promise<ProgressPrediction | null> {
+  private async predictStrengthProgress(
+    userId: string
+  ): Promise<ProgressPrediction | null> {
     try {
       // Get recent strength data from analytics snapshots
       const result = await this.sql`
@@ -663,33 +777,38 @@ export class AdvancedAnalyticsService {
       if (data.length < 3) return null;
 
       // Simple linear regression for strength prediction
-      const volumeData = data.map((d, i) => ({ x: i, y: parseFloat(d.total_volume_kg) || 0 }));
+      const volumeData = data.map((d, i) => ({
+        x: i,
+        y: parseFloat(d.total_volume_kg) || 0,
+      }));
       const slope = this.calculateLinearTrend(volumeData);
-      
+
       if (slope <= 0) return null; // No positive trend
 
       const currentVolume = volumeData[0].y;
-      const predictedVolume = currentVolume + (slope * 3); // 3 months ahead
-      
+      const predictedVolume = currentVolume + slope * 3; // 3 months ahead
+
       return {
         id: crypto.randomUUID(),
         userId,
-        predictionType: 'strength_volume',
+        predictionType: "strength_volume",
         predictionDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 3 months
         predictedValue: Math.round(predictedVolume),
-        confidenceScore: Math.min(95, Math.max(50, 70 + (data.length * 5))),
-        modelVersion: 'linear_v1.0',
+        confidenceScore: Math.min(95, Math.max(50, 70 + data.length * 5)),
+        modelVersion: "linear_v1.0",
         inputDataPoints: data.length,
         predictionHorizonDays: 90,
-        createdAt: new Date()
+        createdAt: new Date(),
       };
     } catch (error) {
-      console.error('Strength prediction error:', error);
+      console.error("Strength prediction error:", error);
       return null;
     }
   }
 
-  private async predictWeightGoal(userId: string): Promise<ProgressPrediction | null> {
+  private async predictWeightGoal(
+    userId: string
+  ): Promise<ProgressPrediction | null> {
     try {
       // Get recent weight data from health metrics
       const result = await this.sql`
@@ -704,38 +823,41 @@ export class AdvancedAnalyticsService {
       if (data.length < 4) return null;
 
       // Calculate weight trend
-      const weightData = data.map((d, i) => ({ 
-        x: i, 
+      const weightData = data.map((d, i) => ({
+        x: i,
         y: parseFloat(d.value),
-        date: new Date(d.recorded_at)
+        date: new Date(d.recorded_at),
       }));
-      
+
       const slope = this.calculateLinearTrend(weightData);
       const currentWeight = weightData[0].y;
-      
+
       // Predict weight in 30 days
-      const predictedWeight = currentWeight + (slope * 4); // ~4 weeks
-      const confidenceScore = Math.abs(slope) < 0.5 ? 85 : Math.max(50, 85 - Math.abs(slope) * 10);
-      
+      const predictedWeight = currentWeight + slope * 4; // ~4 weeks
+      const confidenceScore =
+        Math.abs(slope) < 0.5 ? 85 : Math.max(50, 85 - Math.abs(slope) * 10);
+
       return {
         id: crypto.randomUUID(),
         userId,
-        predictionType: 'weight_progress',
+        predictionType: "weight_progress",
         predictionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         predictedValue: Math.round(predictedWeight * 10) / 10,
         confidenceScore: Math.round(confidenceScore),
-        modelVersion: 'linear_v1.0',
+        modelVersion: "linear_v1.0",
         inputDataPoints: data.length,
         predictionHorizonDays: 30,
-        createdAt: new Date()
+        createdAt: new Date(),
       };
     } catch (error) {
-      console.error('Weight prediction error:', error);
+      console.error("Weight prediction error:", error);
       return null;
     }
   }
 
-  private async predictFitnessScore(userId: string): Promise<ProgressPrediction | null> {
+  private async predictFitnessScore(
+    userId: string
+  ): Promise<ProgressPrediction | null> {
     try {
       // Get recent fitness score data
       const result = await this.sql`
@@ -750,33 +872,36 @@ export class AdvancedAnalyticsService {
       const data = result as any[];
       if (data.length < 3) return null;
 
-      const fitnessData = data.map((d, i) => ({ 
-        x: i, 
-        y: parseFloat(d.overall_fitness_score) || 0 
+      const fitnessData = data.map((d, i) => ({
+        x: i,
+        y: parseFloat(d.overall_fitness_score) || 0,
       }));
-      
+
       const slope = this.calculateLinearTrend(fitnessData);
       const currentScore = fitnessData[0].y;
-      const predictedScore = Math.min(100, Math.max(0, currentScore + (slope * 2))); // 2 months
-      
+      const predictedScore = Math.min(
+        100,
+        Math.max(0, currentScore + slope * 2)
+      ); // 2 months
+
       // Higher confidence for consistent trends
       const consistency = this.calculateTrendConsistency(fitnessData);
-      const confidenceScore = Math.round(60 + (consistency * 30));
-      
+      const confidenceScore = Math.round(60 + consistency * 30);
+
       return {
         id: crypto.randomUUID(),
         userId,
-        predictionType: 'fitness_score',
+        predictionType: "fitness_score",
         predictionDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 2 months
         predictedValue: Math.round(predictedScore),
         confidenceScore,
-        modelVersion: 'trend_v1.0',
+        modelVersion: "trend_v1.0",
         inputDataPoints: data.length,
         predictionHorizonDays: 60,
-        createdAt: new Date()
+        createdAt: new Date(),
       };
     } catch (error) {
-      console.error('Fitness score prediction error:', error);
+      console.error("Fitness score prediction error:", error);
       return null;
     }
   }
@@ -800,9 +925,15 @@ export class AdvancedAnalyticsService {
     `;
   }
 
-  private async getMetricHistory(userId: string, metric: string, startDate: Date, endDate: Date, period: PeriodType): Promise<Array<{date: Date, value: number}>> {
+  private async getMetricHistory(
+    userId: string,
+    metric: string,
+    startDate: Date,
+    endDate: Date,
+    period: PeriodType
+  ): Promise<Array<{ date: Date; value: number }>> {
     const column = this.getMetricColumnName(metric);
-    
+
     const result = await this.sql`
       SELECT period_start as date, ${this.sql.unsafe(column)} as value
       FROM user_analytics_snapshots
@@ -814,37 +945,37 @@ export class AdvancedAnalyticsService {
       ORDER BY period_start ASC
     `;
 
-    return (result as any[]).map(row => ({
+    return (result as any[]).map((row) => ({
       date: new Date(row.date),
-      value: parseFloat(row.value) || 0
+      value: parseFloat(row.value) || 0,
     }));
   }
 
-  private getChartType(metric: string): 'line' | 'bar' | 'area' | 'scatter' {
+  private getChartType(_metric: string): "line" | "bar" | "area" | "scatter" {
     // Most fitness metrics work well as line charts
-    return 'line';
+    return "line";
   }
 
   private getMetricDisplayName(metric: string): string {
     const displayNames: Record<string, string> = {
-      'overall_fitness_score': 'Fitness Score',
-      'strength_pr_count': 'Personal Records',
-      'total_volume_kg': 'Training Volume',
-      'consistency_score': 'Consistency Score',
-      'avg_recovery_score': 'Recovery Score'
+      overall_fitness_score: "Fitness Score",
+      strength_pr_count: "Personal Records",
+      total_volume_kg: "Training Volume",
+      consistency_score: "Consistency Score",
+      avg_recovery_score: "Recovery Score",
     };
     return displayNames[metric] || metric;
   }
 
   private getMetricUnit(metric: string): string {
     const units: Record<string, string> = {
-      'overall_fitness_score': 'score',
-      'strength_pr_count': 'PRs',
-      'total_volume_kg': 'kg',
-      'consistency_score': '%',
-      'avg_recovery_score': 'score'
+      overall_fitness_score: "score",
+      strength_pr_count: "PRs",
+      total_volume_kg: "kg",
+      consistency_score: "%",
+      avg_recovery_score: "score",
     };
-    return units[metric] || '';
+    return units[metric] || "";
   }
 
   private formatMetricValue(value: number, metric: string): string {
@@ -852,60 +983,70 @@ export class AdvancedAnalyticsService {
     return `${Math.round(value * 10) / 10}${unit}`;
   }
 
-  private calculateLinearTrend(data: Array<{x: number, y: number}>): number {
+  private calculateLinearTrend(data: Array<{ x: number; y: number }>): number {
     if (data.length < 2) return 0;
-    
+
     const n = data.length;
     const sumX = data.reduce((sum, point) => sum + point.x, 0);
     const sumY = data.reduce((sum, point) => sum + point.y, 0);
     const sumXY = data.reduce((sum, point) => sum + point.x * point.y, 0);
     const sumXX = data.reduce((sum, point) => sum + point.x * point.x, 0);
-    
+
     // Calculate slope using least squares method
     const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-    return isNaN(slope) ? 0 : slope;
+    return Number.isNaN(slope) ? 0 : slope;
   }
 
-  private calculateTrendConsistency(data: Array<{x: number, y: number}>): number {
+  private calculateTrendConsistency(
+    data: Array<{ x: number; y: number }>
+  ): number {
     if (data.length < 3) return 0;
-    
+
     // Calculate how consistent the trend is (0-1 scale)
     const slope = this.calculateLinearTrend(data);
-    const predicted = data.map(point => slope * point.x + data[0].y);
-    
+    const predicted = data.map((point) => slope * point.x + data[0].y);
+
     // Calculate R-squared (coefficient of determination)
-    const actualMean = data.reduce((sum, point) => sum + point.y, 0) / data.length;
-    const totalSumSquares = data.reduce((sum, point) => sum + Math.pow(point.y - actualMean, 2), 0);
-    const residualSumSquares = data.reduce((sum, point, i) => sum + Math.pow(point.y - predicted[i], 2), 0);
-    
-    const rSquared = totalSumSquares === 0 ? 0 : 1 - (residualSumSquares / totalSumSquares);
+    const actualMean =
+      data.reduce((sum, point) => sum + point.y, 0) / data.length;
+    const totalSumSquares = data.reduce(
+      (sum, point) => sum + (point.y - actualMean) ** 2,
+      0
+    );
+    const residualSumSquares = data.reduce(
+      (sum, point, i) => sum + (point.y - predicted[i]) ** 2,
+      0
+    );
+
+    const rSquared =
+      totalSumSquares === 0 ? 0 : 1 - residualSumSquares / totalSumSquares;
     return Math.max(0, Math.min(1, rSquared));
   }
 
   private getMetricColumnName(metric: string): string {
     const columnMap: Record<string, string> = {
-      'overall_fitness_score': 'overall_fitness_score',
-      'strength_pr_count': 'strength_pr_count',
-      'total_volume_kg': 'total_volume_kg',
-      'consistency_score': 'consistency_score',
-      'avg_recovery_score': 'avg_recovery_score',
-      'total_workouts': 'total_workouts',
-      'avg_workout_intensity': 'avg_workout_intensity'
+      overall_fitness_score: "overall_fitness_score",
+      strength_pr_count: "strength_pr_count",
+      total_volume_kg: "total_volume_kg",
+      consistency_score: "consistency_score",
+      avg_recovery_score: "avg_recovery_score",
+      total_workouts: "total_workouts",
+      avg_workout_intensity: "avg_workout_intensity",
     };
     return columnMap[metric] || metric;
   }
 
   private getTrendInsightTitle(trend: TrendAnalysisResult): string {
     const metricName = this.getMetricDisplayName(trend.metric);
-    
+
     switch (trend.trend) {
-      case 'improving':
+      case "improving":
         return `📈 Tu ${metricName} está mejorando`;
-      case 'declining':
+      case "declining":
         return `📉 Tu ${metricName} está declinando`;
-      case 'plateauing':
+      case "plateauing":
         return `📊 Tu ${metricName} se ha estabilizado`;
-      case 'volatile':
+      case "volatile":
         return `🔄 Tu ${metricName} muestra variabilidad`;
       default:
         return `Análisis de ${metricName}`;
@@ -913,10 +1054,11 @@ export class AdvancedAnalyticsService {
   }
 
   private getTrendInsightDescription(trend: TrendAnalysisResult): string {
-    const changeDirection = trend.changePercent > 0 ? 'aumentado' : 'disminuido';
+    const changeDirection =
+      trend.changePercent > 0 ? "aumentado" : "disminuido";
     const changeAbs = Math.abs(trend.changePercent);
-    
-    return `Tu ${this.getMetricDisplayName(trend.metric)} ha ${changeDirection} un ${changeAbs.toFixed(1)}% en las últimas semanas. ${trend.recommendations.join(' ')}`;
+
+    return `Tu ${this.getMetricDisplayName(trend.metric)} ha ${changeDirection} un ${changeAbs.toFixed(1)}% en las últimas semanas. ${trend.recommendations.join(" ")}`;
   }
 
   // Database result mappers
@@ -936,7 +1078,7 @@ export class AdvancedAnalyticsService {
     userFeedback: row.user_feedback,
     detectedAt: new Date(row.detected_at),
     expiresAt: row.expires_at ? new Date(row.expires_at) : undefined,
-    createdAt: new Date(row.created_at)
+    createdAt: new Date(row.created_at),
   });
 
   private mapProgressPrediction = (row: any): ProgressPrediction => ({
@@ -947,12 +1089,14 @@ export class AdvancedAnalyticsService {
     predictedValue: parseFloat(row.predicted_value),
     confidenceScore: parseFloat(row.confidence_score),
     actualValue: row.actual_value ? parseFloat(row.actual_value) : undefined,
-    accuracyScore: row.accuracy_score ? parseFloat(row.accuracy_score) : undefined,
+    accuracyScore: row.accuracy_score
+      ? parseFloat(row.accuracy_score)
+      : undefined,
     modelVersion: row.model_version,
     inputDataPoints: row.input_data_points,
     predictionHorizonDays: row.prediction_horizon_days,
     createdAt: new Date(row.created_at),
-    achievedAt: row.achieved_at ? new Date(row.achieved_at) : undefined
+    achievedAt: row.achieved_at ? new Date(row.achieved_at) : undefined,
   });
 
   private mapUserAchievement = (row: any): UserAchievement => ({
@@ -967,12 +1111,14 @@ export class AdvancedAnalyticsService {
     valueAchieved: parseFloat(row.value_achieved),
     unit: row.unit,
     previousBest: row.previous_best ? parseFloat(row.previous_best) : undefined,
-    improvementPercent: row.improvement_percent ? parseFloat(row.improvement_percent) : undefined,
+    improvementPercent: row.improvement_percent
+      ? parseFloat(row.improvement_percent)
+      : undefined,
     difficultyLevel: row.difficulty_level,
     rarityScore: row.rarity_score,
     pointsAwarded: row.points_awarded,
     achievedAt: new Date(row.achieved_at),
-    createdAt: new Date(row.created_at)
+    createdAt: new Date(row.created_at),
   });
 
   private mapUserComparison = (row: any): UserComparison => ({
@@ -982,10 +1128,12 @@ export class AdvancedAnalyticsService {
     metricName: row.metric_name,
     userValue: parseFloat(row.user_value),
     comparisonValue: parseFloat(row.comparison_value),
-    percentileRank: row.percentile_rank ? parseFloat(row.percentile_rank) : undefined,
+    percentileRank: row.percentile_rank
+      ? parseFloat(row.percentile_rank)
+      : undefined,
     comparisonGroup: row.comparison_group,
     sampleSize: row.sample_size,
     calculatedAt: new Date(row.calculated_at),
-    validUntil: row.valid_until ? new Date(row.valid_until) : undefined
+    validUntil: row.valid_until ? new Date(row.valid_until) : undefined,
   });
 }

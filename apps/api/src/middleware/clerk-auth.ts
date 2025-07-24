@@ -1,5 +1,5 @@
-import { MiddlewareHandler } from 'hono';
-import { verifyToken } from '@clerk/backend';
+import { verifyToken } from "@clerk/backend";
+import type { MiddlewareHandler } from "hono";
 
 // Types for Clerk user data
 export interface ClerkUser {
@@ -7,8 +7,8 @@ export interface ClerkUser {
   email: string;
   firstName?: string;
   lastName?: string;
-  role: 'user' | 'admin';
-  plan: 'free' | 'premium' | 'pro';
+  role: "user" | "admin";
+  plan: "free" | "premium" | "pro";
 }
 
 // Environment bindings for Clerk
@@ -18,7 +18,7 @@ interface ClerkBindings {
 }
 
 /**
- * Middleware to verify Clerk JWT tokens in Cloudflare Workers
+ * Middleware to verify Clerk authentication tokens in Cloudflare Workers
  * Sets the user data in context variables for downstream handlers
  */
 export const clerkAuth = (): MiddlewareHandler<{
@@ -30,16 +30,19 @@ export const clerkAuth = (): MiddlewareHandler<{
   return async (c, next) => {
     try {
       // Extract Authorization header
-      const authHeader = c.req.header('Authorization');
-      
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return c.json({ error: 'Unauthorized - Missing or invalid Authorization header' }, 401);
+      const authHeader = c.req.header("Authorization");
+
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return c.json(
+          { error: "Unauthorized - Missing or invalid Authorization header" },
+          401
+        );
       }
 
-      const token = authHeader.replace('Bearer ', '');
-      
+      const token = authHeader.replace("Bearer ", "");
+
       if (!token) {
-        return c.json({ error: 'Unauthorized - No token provided' }, 401);
+        return c.json({ error: "Unauthorized - No token provided" }, 401);
       }
 
       // Verify token with Clerk
@@ -48,24 +51,26 @@ export const clerkAuth = (): MiddlewareHandler<{
       });
 
       if (!sessionClaims) {
-        return c.json({ error: 'Unauthorized - Invalid token' }, 401);
+        return c.json({ error: "Unauthorized - Invalid token" }, 401);
       }
 
       // Extract user information from session claims
       const userId = (sessionClaims as any).sub;
-      const email = (sessionClaims as any)?.email || '';
-      const firstName = (sessionClaims as any)?.given_name || '';
-      const lastName = (sessionClaims as any)?.family_name || '';
-      
+      const email = (sessionClaims as any)?.email || "";
+      const firstName = (sessionClaims as any)?.given_name || "";
+      const lastName = (sessionClaims as any)?.family_name || "";
+
       // Extract role from metadata (default to 'user')
-      const userRole = (sessionClaims as any)?.metadata?.role || 
-                       (sessionClaims as any)?.publicMetadata?.role || 
-                       'user';
-      
+      const userRole =
+        (sessionClaims as any)?.metadata?.role ||
+        (sessionClaims as any)?.publicMetadata?.role ||
+        "user";
+
       // Extract plan from metadata (default to 'free')
-      const userPlan = (sessionClaims as any)?.metadata?.plan || 
-                       (sessionClaims as any)?.publicMetadata?.plan || 
-                       'free';
+      const userPlan =
+        (sessionClaims as any)?.metadata?.plan ||
+        (sessionClaims as any)?.publicMetadata?.plan ||
+        "free";
 
       // Set user data in context
       const user: ClerkUser = {
@@ -73,21 +78,23 @@ export const clerkAuth = (): MiddlewareHandler<{
         email,
         firstName,
         lastName,
-        role: userRole as 'user' | 'admin',
-        plan: userPlan as 'free' | 'premium' | 'pro'
+        role: userRole as "user" | "admin",
+        plan: userPlan as "free" | "premium" | "pro",
       };
 
-      c.set('user', user);
-      
+      c.set("user", user);
+
       // Continue to next middleware/handler
       await next();
-
     } catch (error) {
-      console.error('Clerk auth error:', error);
-      return c.json({ 
-        error: 'Unauthorized - Token verification failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      }, 401);
+      console.error("Clerk auth error:", error);
+      return c.json(
+        {
+          error: "Unauthorized - Token verification failed",
+          message: error instanceof Error ? error.message : "Unknown error",
+        },
+        401
+      );
     }
   };
 };
@@ -98,12 +105,12 @@ export const clerkAuth = (): MiddlewareHandler<{
  */
 export const requireAuth = (): MiddlewareHandler => {
   return async (c, next) => {
-    const user = c.get('user');
-    
+    const user = c.get("user");
+
     if (!user) {
-      return c.json({ error: 'Unauthorized - Authentication required' }, 401);
+      return c.json({ error: "Unauthorized - Authentication required" }, 401);
     }
-    
+
     await next();
   };
 };
@@ -114,16 +121,16 @@ export const requireAuth = (): MiddlewareHandler => {
  */
 export const requireAdmin = (): MiddlewareHandler => {
   return async (c, next) => {
-    const user = c.get('user');
-    
+    const user = c.get("user");
+
     if (!user) {
-      return c.json({ error: 'Unauthorized - Authentication required' }, 401);
+      return c.json({ error: "Unauthorized - Authentication required" }, 401);
     }
-    
-    if (user.role !== 'admin') {
-      return c.json({ error: 'Forbidden - Admin access required' }, 403);
+
+    if (user.role !== "admin") {
+      return c.json({ error: "Forbidden - Admin access required" }, 403);
     }
-    
+
     await next();
   };
 };
@@ -134,19 +141,22 @@ export const requireAdmin = (): MiddlewareHandler => {
  */
 export const requirePremium = (): MiddlewareHandler => {
   return async (c, next) => {
-    const user = c.get('user');
-    
+    const user = c.get("user");
+
     if (!user) {
-      return c.json({ error: 'Unauthorized - Authentication required' }, 401);
+      return c.json({ error: "Unauthorized - Authentication required" }, 401);
     }
-    
-    if (user.plan === 'free') {
-      return c.json({ 
-        error: 'Upgrade Required - Premium plan required for this feature',
-        upgradeUrl: '/api/v1/payments/plans' 
-      }, 402);
+
+    if (user.plan === "free") {
+      return c.json(
+        {
+          error: "Upgrade Required - Premium plan required for this feature",
+          upgradeUrl: "/api/v1/payments/plans",
+        },
+        402
+      );
     }
-    
+
     await next();
   };
 };

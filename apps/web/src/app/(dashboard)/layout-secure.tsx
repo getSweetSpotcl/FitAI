@@ -1,7 +1,7 @@
-import { auth, clerkClient } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
-import { UserButton } from '@clerk/nextjs';
-import Link from 'next/link';
+import { UserButton } from "@clerk/nextjs";
+import { auth, clerkClient } from "@clerk/nextjs/server";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export default async function DashboardLayoutSecure({
   children,
@@ -11,17 +11,17 @@ export default async function DashboardLayoutSecure({
   const { userId } = await auth();
 
   if (!userId) {
-    redirect('/sign-in');
+    redirect("/sign-in");
   }
 
   // Obtener usuario completo con private metadata (más seguro)
   const user = await (await clerkClient()).users.getUser(userId);
-  
+
   // Verificar rol en private metadata
-  const userRole = (user.privateMetadata as any)?.role || 'user';
-  
-  if (userRole !== 'admin') {
-    redirect('/unauthorized');
+  const userRole = (user.privateMetadata as any)?.role || "user";
+
+  if (userRole !== "admin") {
+    redirect("/unauthorized");
   }
 
   return (
@@ -69,7 +69,7 @@ export default async function DashboardLayoutSecure({
                 afterSignOutUrl="/"
                 appearance={{
                   elements: {
-                    avatarBox: 'w-8 h-8',
+                    avatarBox: "w-8 h-8",
                   },
                 }}
               />

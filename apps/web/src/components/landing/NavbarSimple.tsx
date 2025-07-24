@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUser, SignOutButton } from '@clerk/nextjs';
-import { Button } from '../ui';
-import { Menu, X, Download, ExternalLink, LogOut, User } from 'lucide-react';
+import { SignOutButton, useUser } from "@clerk/nextjs";
+import { Download, ExternalLink, LogOut, Menu, User, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import type React from "react";
+import { useEffect, useState } from "react";
+import { Button } from "../ui";
 
 export const NavbarSimple: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -15,34 +16,34 @@ export const NavbarSimple: React.FC = () => {
 
   useEffect(() => {
     setMounted(true);
-    
+
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const navItems = [
-    { label: 'Características', href: '#features' },
-    { label: 'Precios', href: '#pricing' },
-    { label: 'Documentación', href: '/docs' },
-    { label: 'Soporte', href: '#footer' },
+    { label: "Características", href: "#features" },
+    { label: "Precios", href: "#pricing" },
+    { label: "Documentación", href: "/docs" },
+    { label: "Soporte", href: "#footer" },
   ];
 
   const scrollToSection = (href: string) => {
-    if (href.startsWith('#')) {
+    if (href.startsWith("#")) {
       const element = document.querySelector(href);
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
+        element.scrollIntoView({ behavior: "smooth" });
       }
     }
     setIsMobileMenuOpen(false);
   };
 
   const handleLogin = () => {
-    router.push('/sign-in');
+    router.push("/sign-in");
     setIsMobileMenuOpen(false);
   };
 
@@ -51,23 +52,25 @@ export const NavbarSimple: React.FC = () => {
   };
 
   const handleDashboard = () => {
-    router.push('/dashboard');
+    router.push("/dashboard");
     setIsMobileMenuOpen(false);
   };
 
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
-            ? 'glass-effect border-b border-gray-700/50 backdrop-blur-md'
-            : 'bg-transparent'
-        }`}>
+            ? "glass-effect border-b border-gray-700/50 backdrop-blur-md"
+            : "bg-transparent"
+        }`}
+      >
         <div className="container-custom">
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
             <div
               className="flex items-center gap-3 cursor-pointer hover:scale-105 transition-transform"
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             >
               <div className="w-10 h-10 energy-gradient rounded-xl flex items-center justify-center energy-shadow">
                 <span className="text-white font-bold text-lg">⚡</span>
@@ -84,15 +87,15 @@ export const NavbarSimple: React.FC = () => {
                   key={item.label}
                   className="text-gray-300 hover:text-white transition-colors font-medium hover:scale-105"
                   onClick={() => {
-                    if (item.href.startsWith('/')) {
-                      window.open(item.href, '_blank');
+                    if (item.href.startsWith("/")) {
+                      window.open(item.href, "_blank");
                     } else {
                       scrollToSection(item.href);
                     }
                   }}
                 >
                   {item.label}
-                  {item.href.startsWith('/') && (
+                  {item.href.startsWith("/") && (
                     <ExternalLink className="w-3 h-3 ml-1 inline" />
                   )}
                 </button>
@@ -106,10 +109,7 @@ export const NavbarSimple: React.FC = () => {
                   <Button variant="ghost" size="sm" onClick={handleLogin}>
                     Iniciar Sesión
                   </Button>
-                  <Button 
-                    size="sm" 
-                    leftIcon={<Download className="w-4 h-4" />}
-                  >
+                  <Button size="sm" leftIcon={<Download className="w-4 h-4" />}>
                     Descargar
                   </Button>
                 </>
@@ -117,7 +117,7 @@ export const NavbarSimple: React.FC = () => {
                 <>
                   <Button variant="ghost" size="sm" onClick={handleDashboard}>
                     <User className="w-4 h-4 mr-2" />
-                    {user?.firstName || 'Dashboard'}
+                    {user?.firstName || "Dashboard"}
                   </Button>
                   <SignOutButton>
                     <Button variant="ghost" size="sm" onClick={handleSignOut}>
@@ -131,10 +131,7 @@ export const NavbarSimple: React.FC = () => {
                   <Button variant="ghost" size="sm" onClick={handleLogin}>
                     Iniciar Sesión
                   </Button>
-                  <Button 
-                    size="sm" 
-                    leftIcon={<Download className="w-4 h-4" />}
-                  >
+                  <Button size="sm" leftIcon={<Download className="w-4 h-4" />}>
                     Descargar
                   </Button>
                 </>
@@ -146,7 +143,11 @@ export const NavbarSimple: React.FC = () => {
               className="md:hidden p-2 text-gray-300 hover:text-white transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
             </button>
           </div>
         </div>
@@ -162,15 +163,15 @@ export const NavbarSimple: React.FC = () => {
                   key={item.label}
                   className="block w-full text-left text-gray-300 hover:text-white transition-colors font-medium py-2"
                   onClick={() => {
-                    if (item.href.startsWith('/')) {
-                      window.open(item.href, '_blank');
+                    if (item.href.startsWith("/")) {
+                      window.open(item.href, "_blank");
                     } else {
                       scrollToSection(item.href);
                     }
                   }}
                 >
                   {item.label}
-                  {item.href.startsWith('/') && (
+                  {item.href.startsWith("/") && (
                     <ExternalLink className="w-3 h-3 ml-1 inline" />
                   )}
                 </button>
@@ -178,11 +179,16 @@ export const NavbarSimple: React.FC = () => {
               <div className="pt-4 border-t border-gray-700/50 space-y-3">
                 {!mounted ? (
                   <>
-                    <Button variant="ghost" size="sm" className="w-full" onClick={handleLogin}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleLogin}
+                    >
                       Iniciar Sesión
                     </Button>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="w-full"
                       leftIcon={<Download className="w-4 h-4" />}
                     >
@@ -191,12 +197,22 @@ export const NavbarSimple: React.FC = () => {
                   </>
                 ) : isSignedIn ? (
                   <>
-                    <Button variant="ghost" size="sm" className="w-full" onClick={handleDashboard}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleDashboard}
+                    >
                       <User className="w-4 h-4 mr-2" />
-                      {user?.firstName || 'Dashboard'}
+                      {user?.firstName || "Dashboard"}
                     </Button>
                     <SignOutButton>
-                      <Button variant="ghost" size="sm" className="w-full" onClick={handleSignOut}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full"
+                        onClick={handleSignOut}
+                      >
                         <LogOut className="w-4 h-4 mr-2" />
                         Cerrar Sesión
                       </Button>
@@ -204,11 +220,16 @@ export const NavbarSimple: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <Button variant="ghost" size="sm" className="w-full" onClick={handleLogin}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleLogin}
+                    >
                       Iniciar Sesión
                     </Button>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="w-full"
                       leftIcon={<Download className="w-4 h-4" />}
                     >

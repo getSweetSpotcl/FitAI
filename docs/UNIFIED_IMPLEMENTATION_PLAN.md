@@ -2,8 +2,9 @@
 *Monorepo optimizado: Solo Dashboard Web + APIs*
 
 **Fecha de creación:** Enero 2025  
-**Versión:** 2.0 (Unificada)  
-**Estado:** En ejecución - Fase 2
+**Versión:** 3.0 (Reordenada)  
+**Estado:** Finalizando desarrollo - Preparando deployment  
+**Última actualización:** Julio 2025
 
 ---
 
@@ -14,99 +15,87 @@
 - ✅ **API Backend** (Cloudflare Workers + Hono.js) - APIs para consumo
 - ✅ **Base de datos** (Neon PostgreSQL + Upstash Redis)
 
-**Separado y futuro**:
+**Separado (Repositorio Independiente)**:
 - 📱 **App React Native** - Proyecto independiente que consumirá las APIs
+- 🏗️ **Desarrollo independiente**: Se desarrollará en repositorio separado para mayor flexibilidad
+- 🔗 **Integración**: Consumirá APIs REST del backend mediante SDK/cliente HTTP
 
 ---
 
-## 🎯 Estado Actual vs Plan Futuro
+## 🎯 Estado Actual del Desarrollo - REORDENADO
 
-### ✅ **YA COMPLETADO (Fase 1: Semanas 1-2)**
-- Monorepo con Turborepo configurado
-- Dashboard Next.js funcionando con Clerk
-- API Backend desplegada en Cloudflare Workers
-- Autenticación Clerk básica implementada en web dashboard
-- Dashboard admin con toggle usuario/admin
-- Middleware Clerk funcionando correctamente
+### ✅ **COMPLETADO - Backend Core Funcional (Fases 1-6)**
 
-### 🚀 **ACTUAL: Completar Backend & APIs (Fase 2: Semanas 3-6)**
+#### **✅ Fase 1-2: Arquitectura Base y Autenticación**
+- ✅ Monorepo con Turborepo configurado
+- ✅ Dashboard Next.js 15 funcionando con Clerk
+- ✅ API Backend completamente funcional en Cloudflare Workers
+- ✅ Middleware Clerk completamente integrado en API y Web
+- ✅ Dashboard admin con control de roles usuario/admin
+- ✅ Sistema de webhooks Clerk funcionando
 
-#### **2.1 Completar Migración Clerk en API Backend** ⏳
-- Implementar middleware Clerk en Hono.js
-- Eliminar sistema JWT custom completamente
-- Configurar webhooks para sincronización automática
-- Actualizar todas las rutas protegidas
+#### **✅ Fase 3: APIs Avanzadas Completas**
+- ✅ **Sistema de IA con Control de Costos** - OpenAI integrado con cache Redis
+- ✅ **APIs Premium** - Sistema de suscripciones MercadoPago completo
+- ✅ **APIs de Analytics** - Métricas completas, progress tracking, achievements
 
-#### **2.2 Sistema de Base de Datos**
-- Actualizar schema PostgreSQL para Clerk
-- Implementar user sync via webhooks
-- Crear servicios de datos para app móvil futura
+#### **✅ Fase 4: Monetización MercadoPago**
+- ✅ **Sistema de Suscripciones** - Integración MercadoPago Chile completa
+- ✅ **Plan tiers** - Free, Premium ($7,990 CLP), Pro ($14,990 CLP)
+- ✅ **Webhook management** - Gestión de pagos automática
+- ✅ **Premium Features** - AI avanzado, analytics premium, export features
 
-#### **2.3 APIs Core para App Móvil**
-- `/api/v1/auth/*` - Endpoints de autenticación
-- `/api/v1/users/*` - Perfil y configuraciones
-- `/api/v1/exercises/*` - Catálogo de ejercicios  
-- `/api/v1/workouts/*` - Logging de entrenamientos
-- `/api/v1/routines/*` - Rutinas personalizadas
+#### **✅ Fase 5: Análisis Avanzado**
+- ✅ **Advanced Analytics Engine** - Métricas de progreso, plateau detection
+- ✅ **Performance Optimizations** - Caché Redis, rate limiting, optimización DB
+- ✅ **Social Features** - Sistema social avanzado (más allá del plan original)
 
-### 🔮 **FASE 3: APIs Avanzadas (Semanas 7-10)**
+#### **✅ Fase 6: APIs Enterprise**
+- ✅ **API Documentation** - Documentación interna completa
+- ✅ **Monitoring & Observability** - Sistema de logging estructurado
+- ✅ **Health Integration** - Apple HealthKit integration
+- ⚠️ **Pendiente**: OpenAPI/Swagger documentation externa
 
-#### **3.1 Sistema de IA con Control de Costos**
-- Implementar cache Redis para respuestas IA
-- Sistema de créditos por plan de usuario
-- Cost control layers (cache → rules → AI)
-- Rate limiting inteligente
+### 🔧 **ACTUAL: Finalización y Testing (Fase 7-8)**
 
-#### **3.2 APIs Premium**
-- Sistema de suscripciones (MercadoPago)
-- Features premium diferenciadas
-- Analytics avanzados para admin
+#### **🔄 Fase 7: Limpieza y Optimización de Código**
+- ⏳ **Eliminar código legacy** - Remover JWT middleware no utilizado
+- ⏳ **Code cleanup** - Optimizar imports, eliminar dead code
+- ⏳ **Performance tuning** - Optimizar queries y cache
+- ⏳ **Security audit** - Revisar implementaciones de seguridad
 
-#### **3.3 APIs de Analytics**
-- Métricas de usuario para dashboard admin
-- Progress tracking endpoints
-- Sistema de achievements
+#### **🔄 Fase 8: Testing y Documentación**
+- ⏳ **Testing completo** - Ejecutar y validar todos los tests
+- ⏳ **Coverage analysis** - Asegurar cobertura de tests adecuada
+- ⏳ **API Documentation** - Crear documentación OpenAPI/Swagger
+- ⏳ **Integration testing** - Tests end-to-end completos
 
-### 🔮 **FASE 4: Funciones Premium y Monetización (Semanas 11-14)**
+### 🔮 **FASE FINAL: Deployment a Producción (Fase 9)**
+**MOVIDO AL FINAL - Solo cuando todo esté probado y optimizado**
 
-#### **4.1 Sistema de Suscripciones - MercadoPago Chile**
-- Payment integration completa
-- Plan tiers: Free, Premium ($7,990 CLP), Pro ($14,990 CLP)
-- Webhooks para subscription management
-- Dunning management para failed payments
+#### **9.1 Pre-deployment Checklist**
+- 🔄 **Tests passing** - Todos los tests deben pasar
+- 🔄 **Performance validated** - Métricas de performance validadas
+- 🔄 **Security verified** - Auditoría de seguridad completa
+- 🔄 **Documentation complete** - Documentación técnica completa
 
-#### **4.2 Premium Features Implementation**
-- Advanced AI features con limits por plan
-- Enhanced analytics para premium users
-- Export features (PDF reports, CSV data)
-- Priority support system
+#### **9.2 Domain Setup y Migration**
+- 🔮 **Domain setup** - Configurar getfitia.com en Cloudflare
+- 🔮 **API migration** - Migrar de .workers.dev a api.getfitia.com  
+- 🔮 **SSL y DNS** - Configuración completa de certificados
+- 🔮 **Environment setup** - Staging y production environments
 
-### 🔮 **FASE 5: Análisis Avanzado y Optimizaciones (Semanas 15-18)**
+#### **9.3 CI/CD Pipeline y Monitoring**
+- 🔮 **GitHub Actions** - Pipeline de deployment automático
+- 🔮 **Monitoring setup** - Cloudflare Analytics, Sentry integration
+- 🔮 **Alerting** - Sistema de alertas para downtime/errores
+- 🔮 **Backup strategy** - Backup automático de base de datos
 
-#### **5.1 Advanced Analytics Engine**
-- Machine learning models para plateau detection
-- Fatigue management system
-- Optimal volume calculation
-- Injury risk assessment
-
-#### **5.2 Performance Optimizations**
-- Database query optimization
-- Multi-level caching strategy
-- API rate limiting protection
-- Edge computing optimization
-
-### 🔮 **FASE 6: Preparación para Expansión (Semanas 19-22)**
-
-#### **6.1 API Documentation & SDK**
-- OpenAPI/Swagger documentation completa
-- SDK para React Native app
-- Developer portal para third-party integrations
-
-#### **6.2 Monitoring & Observability**
-- Comprehensive error tracking
-- Performance monitoring
-- User analytics dashboard
-- Cost monitoring para IA usage
+#### **9.4 Performance y Seguridad en Producción**
+- 🔮 **Cloudflare Pro** - WAF, DDoS protection, optimizaciones
+- 🔮 **Load testing** - Pruebas de carga en ambiente de staging
+- 🔮 **Security hardening** - Headers de seguridad, rate limiting global
+- 🔮 **Disaster recovery** - Procedimientos de recuperación
 
 ---
 
@@ -161,33 +150,50 @@ fitai-backend/
 
 ---
 
-## 🔧 Próximos Pasos Técnicos
+## 🔧 Próximos Pasos Técnicos - ACTUALIZADOS
 
-### **Inmediato (Esta semana) - Fase 2.1**
-1. **Completar middleware Clerk en API** ⏳
-   - Instalar `@clerk/backend` en Cloudflare Workers
-   - Implementar verificación de tokens JWT
-   - Configurar webhooks endpoint
+### **🎯 Inmediato (Esta semana) - Fase 7: Limpieza y Testing**
 
-2. **Limpiar sistema JWT legacy**
-   - Eliminar `src/routes/auth.ts`
-   - Remover middleware JWT custom
-   - Actualizar todas las rutas protegidas
+#### **7.1 Limpieza de Código Legacy** ⏳
+1. **Eliminar middleware JWT legacy**
+   - Remover `apps/api/src/middleware/auth.ts` (no utilizado)
+   - Verificar que no hay referencias en el código
+   - Limpiar imports relacionados
 
-3. **Database schema update**
-   - Agregar `clerk_user_id` a tabla users
-   - Implementar sincronización automática via webhooks
+2. **Code cleanup general**
+   - Optimizar imports no utilizados
+   - Eliminar dead code y comentarios obsoletos
+   - Verificar consistencia en naming conventions
 
-### **Medio plazo (Próximas 2-3 semanas) - Fase 2.2-2.3**
-4. **APIs para app móvil futura**
-   - Endpoints completos de usuarios, ejercicios, workouts
-   - Sistema de cache con Redis
-   - Rate limiting por usuario
+#### **7.2 Validación y Testing** ⏳
+3. **Ejecutar suite completa de tests**
+   - Correr todos los tests de API y Web
+   - Verificar coverage reports
+   - Identificar tests faltantes o fallando
 
-5. **Sistema IA con control de costos**
-   - Cache inteligente para respuestas IA
-   - Credit system por plan de usuario
-   - Cost monitoring en dashboard admin
+4. **Performance testing local**
+   - Verificar tiempos de respuesta de APIs
+   - Testear cache Redis functionality
+   - Validar rate limiting por plan
+
+### **📚 Medio plazo (Próximas 1-2 semanas) - Fase 8: Documentación**
+
+#### **8.1 API Documentation** 
+5. **Crear documentación OpenAPI/Swagger**
+   - Documentar todos los endpoints existentes
+   - Incluir examples y error responses
+   - Setup de Swagger UI para development
+
+6. **Developer docs para React Native**
+   - Guías de integración con las APIs
+   - Authentication flow documentation
+   - Error handling best practices
+
+### **🚀 Largo plazo - Fase 9: Deployment (AL FINAL)**
+- **Solo después de completar testing y documentación**
+- **Deployment a producción con dominio custom**
+- **CI/CD pipeline setup**
+- **Production monitoring**
 
 ---
 
@@ -433,16 +439,41 @@ https://staging.getfitia.com
 
 ---
 
-## 🎯 Siguiente Acción Inmediata
+## 🎯 Siguiente Acción Inmediata - REORDENADO
 
-**INICIAR FASE 10**: Deployment y Producción con dominio getfitia.com
-1. **Domain setup** en Cloudflare con getfitia.com
-2. **API migration** a custom domain
-3. **Web deployment** a Cloudflare Workers
-4. **CI/CD pipeline** implementation
+**ACTUAL - FASE 7**: Limpieza y Testing (No Deployment)
+1. ⏳ **Ejecutar todos los tests** y verificar que pasen
+2. ⏳ **Eliminar código JWT legacy** no utilizado  
+3. ⏳ **Code cleanup** general y optimización
+4. ⏳ **Performance validation** local
+
+**FUTURO - FASE 8**: Documentación API
+5. 📚 **Crear OpenAPI/Swagger** documentation completa
+6. 📚 **Developer guides** para integración React Native
+
+**ÚLTIMO - FASE 9**: Deployment (Solo cuando todo esté probado)
+7. 🚀 **Domain setup** en Cloudflare con getfitia.com
+8. 🚀 **Production deployment** y monitoring
+
+---
+
+## 📋 Arquitectura Confirmada - App Móvil Independiente
+
+### **✅ Decisión Tomada: Repositorio Separado**
+- 📱 **App React Native**: Desarrollo en repositorio independiente
+- 🔗 **Integración**: Cliente HTTP para consumir APIs REST
+- 🚀 **Beneficios**: Desarrollo paralelo, equipos independientes, ciclos de release separados
+- 📦 **SDK**: Se creará cliente/SDK para facilitar integración
+
+### **✅ Este Monorepo (FitAI Backend)**
+- 🖥️ **Web Dashboard**: Admin panel con Next.js + Clerk
+- ⚡ **API Backend**: Cloudflare Workers + Hono.js  
+- 🗄️ **Database**: Neon PostgreSQL + Upstash Redis
+- 📊 **Analytics**: Métricas y reporting para admins
 
 ---
 
 *Documento actualizado: Julio 2025*  
-*Estado: Fase 9 Completada → Iniciando Fase 10*  
-*Próxima revisión: Semanal*
+*Versión: 3.0 - Plan Reordenado*  
+*Estado: Finalizando desarrollo → Testing y limpieza*  
+*Próxima revisión: Después de completar tests*

@@ -1,4 +1,4 @@
-import { AIResourceManager, UserProfile } from './ai-cost-control';
+import type { AIResourceManager, UserProfile } from "./ai-cost-control";
 
 export interface PremiumAIFeatures {
   unlimitedRoutineGeneration: boolean;
@@ -18,7 +18,7 @@ export interface AdvancedRoutine {
   recoveryProtocol: RecoveryProtocol;
   progressionScheme: ProgressionScheme;
   estimatedDuration: number;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  difficulty: "beginner" | "intermediate" | "advanced";
   goals: string[];
 }
 
@@ -44,7 +44,7 @@ export interface ExerciseAlternative {
 }
 
 export interface PeriodizationPlan {
-  type: 'linear' | 'undulating' | 'block';
+  type: "linear" | "undulating" | "block";
   phases: PeriodizationPhase[];
   duration: number; // weeks
   deloadFrequency: number; // every N weeks
@@ -66,7 +66,7 @@ export interface RecoveryProtocol {
 }
 
 export interface NutritionTiming {
-  timing: 'pre-workout' | 'post-workout' | 'daily';
+  timing: "pre-workout" | "post-workout" | "daily";
   macros: {
     protein: number; // grams
     carbs: number;
@@ -80,18 +80,18 @@ export interface SupplementRecommendation {
   dosage: string;
   timing: string;
   purpose: string;
-  evidence: 'high' | 'moderate' | 'low';
+  evidence: "high" | "moderate" | "low";
 }
 
 export interface ActiveRecoveryActivity {
   activity: string;
   duration: number; // minutes
-  intensity: 'low' | 'moderate';
+  intensity: "low" | "moderate";
   benefits: string[];
 }
 
 export interface ProgressionScheme {
-  type: 'linear' | 'double_progression' | 'wave_loading';
+  type: "linear" | "double_progression" | "wave_loading";
   parameters: ProgressionParameters;
   milestones: ProgressionMilestone[];
 }
@@ -118,14 +118,14 @@ export interface FatigueAnalysis {
 }
 
 export interface FatiguePattern {
-  type: 'volume' | 'intensity' | 'frequency';
-  trend: 'increasing' | 'stable' | 'decreasing';
-  severity: 'low' | 'moderate' | 'high';
+  type: "volume" | "intensity" | "frequency";
+  trend: "increasing" | "stable" | "decreasing";
+  severity: "low" | "moderate" | "high";
   description: string;
 }
 
 export interface FatigueRecommendation {
-  type: 'deload' | 'rest' | 'modify_intensity' | 'modify_volume';
+  type: "deload" | "rest" | "modify_intensity" | "modify_volume";
   action: string;
   duration: number; // days
   reasoning: string;
@@ -142,7 +142,7 @@ export interface LoadRecommendation {
 }
 
 export interface LoadAlternative {
-  type: 'sets' | 'reps' | 'rest' | 'tempo';
+  type: "sets" | "reps" | "rest" | "tempo";
   currentValue: string;
   recommendedValue: string;
   reasoning: string;
@@ -160,8 +160,14 @@ export class PremiumAIService {
   /**
    * Verificar si el usuario tiene acceso a funciones premium
    */
-  static hasAccess(userPlan: 'free' | 'premium' | 'pro', feature: keyof PremiumAIFeatures): boolean {
-    const premiumFeatures: Record<'free' | 'premium' | 'pro', PremiumAIFeatures> = {
+  static hasAccess(
+    userPlan: "free" | "premium" | "pro",
+    feature: keyof PremiumAIFeatures
+  ): boolean {
+    const premiumFeatures: Record<
+      "free" | "premium" | "pro",
+      PremiumAIFeatures
+    > = {
       free: {
         unlimitedRoutineGeneration: false,
         advancedProgressAnalysis: false,
@@ -199,17 +205,23 @@ export class PremiumAIService {
     data?: AdvancedRoutine;
     error?: string;
   }> {
-    if (!PremiumAIService.hasAccess(userProfile.plan, 'unlimitedRoutineGeneration') && userProfile.plan !== 'pro') {
+    if (
+      !PremiumAIService.hasAccess(
+        userProfile.plan,
+        "unlimitedRoutineGeneration"
+      ) &&
+      userProfile.plan !== "pro"
+    ) {
       // Check credits for premium users
       const creditCheck = await this.aiManager.checkAndConsume(userProfile.id, {
-        type: 'routine_generation',
-        complexity: 'complex',
+        type: "routine_generation",
+        complexity: "complex",
       });
 
       if (!creditCheck.allowed) {
         return {
           success: false,
-          error: creditCheck.error || 'Sin créditos disponibles',
+          error: creditCheck.error || "Sin créditos disponibles",
         };
       }
     }
@@ -218,23 +230,26 @@ export class PremiumAIService {
       const systemPrompt = this.buildAdvancedRoutinePrompt();
       const userPrompt = this.buildAdvancedUserPrompt(userProfile);
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o', // Use more powerful model for premium
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.7,
-          max_tokens: 3000,
-          response_format: { type: 'json_object' },
-        }),
-      });
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.openaiApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o", // Use more powerful model for premium
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.7,
+            max_tokens: 3000,
+            response_format: { type: "json_object" },
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`OpenAI API error: ${response.status}`);
@@ -242,23 +257,25 @@ export class PremiumAIService {
 
       const data = await response.json();
       const content = (data as any).choices?.[0]?.message?.content;
-      
+
       if (!content) {
-        throw new Error('No content received from OpenAI');
+        throw new Error("No content received from OpenAI");
       }
 
       const advancedRoutine = JSON.parse(content) as AdvancedRoutine;
-      
+
       return {
         success: true,
-        data: this.validateAndFormatAdvancedRoutine(advancedRoutine, userProfile),
+        data: this.validateAndFormatAdvancedRoutine(
+          advancedRoutine,
+          userProfile
+        ),
       };
-
     } catch (error) {
-      console.error('Error generating advanced routine:', error);
+      console.error("Error generating advanced routine:", error);
       return {
         success: false,
-        error: 'Error al generar rutina avanzada',
+        error: "Error al generar rutina avanzada",
       };
     }
   }
@@ -309,23 +326,26 @@ ${JSON.stringify(workoutHistory, null, 2)}
 
 Proporciona un análisis completo de fatiga y recomendaciones de recuperación.`;
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.3,
-          max_tokens: 2000,
-          response_format: { type: 'json_object' },
-        }),
-      });
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.openaiApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.3,
+            max_tokens: 2000,
+            response_format: { type: "json_object" },
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`OpenAI API error: ${response.status}`);
@@ -333,23 +353,22 @@ Proporciona un análisis completo de fatiga y recomendaciones de recuperación.`
 
       const data = await response.json();
       const content = (data as any).choices?.[0]?.message?.content;
-      
+
       if (!content) {
-        throw new Error('No content received from OpenAI');
+        throw new Error("No content received from OpenAI");
       }
 
       const fatigueAnalysis = JSON.parse(content) as FatigueAnalysis;
-      
+
       return {
         success: true,
         data: fatigueAnalysis,
       };
-
     } catch (error) {
-      console.error('Error analyzing fatigue patterns:', error);
+      console.error("Error analyzing fatigue patterns:", error);
       return {
         success: false,
-        error: 'Error al analizar patrones de fatiga',
+        error: "Error al analizar patrones de fatiga",
       };
     }
   }
@@ -399,23 +418,26 @@ ${JSON.stringify(exerciseHistory, null, 2)}
 
 Proporciona recomendaciones de carga específicas para cada ejercicio.`;
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.2,
-          max_tokens: 2500,
-          response_format: { type: 'json_object' },
-        }),
-      });
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.openaiApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.2,
+            max_tokens: 2500,
+            response_format: { type: "json_object" },
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`OpenAI API error: ${response.status}`);
@@ -423,23 +445,22 @@ Proporciona recomendaciones de carga específicas para cada ejercicio.`;
 
       const data = await response.json();
       const content = (data as any).choices?.[0]?.message?.content;
-      
+
       if (!content) {
-        throw new Error('No content received from OpenAI');
+        throw new Error("No content received from OpenAI");
       }
 
       const loadAnalysis = JSON.parse(content);
-      
+
       return {
         success: true,
         data: loadAnalysis.recommendations as LoadRecommendation[],
       };
-
     } catch (error) {
-      console.error('Error predicting load progression:', error);
+      console.error("Error predicting load progression:", error);
       return {
         success: false,
-        error: 'Error al predecir progresión de carga',
+        error: "Error al predecir progresión de carga",
       };
     }
   }
@@ -550,10 +571,10 @@ FORMATO JSON REQUERIDO:
 
 PERFIL DEL USUARIO:
 - Nivel: ${userProfile.experienceLevel}
-- Objetivos: ${userProfile.goals.join(', ')}
+- Objetivos: ${userProfile.goals.join(", ")}
 - Días disponibles: ${userProfile.availableDays}
-- Equipamiento: ${userProfile.availableEquipment.join(', ')}
-${userProfile.injuries ? `- Limitaciones: ${userProfile.injuries.join(', ')}` : ''}
+- Equipamiento: ${userProfile.availableEquipment.join(", ")}
+${userProfile.injuries ? `- Limitaciones: ${userProfile.injuries.join(", ")}` : ""}
 
 REQUISITOS AVANZADOS:
 - Incluir periodización científica (4-12 semanas)
@@ -568,28 +589,35 @@ REQUISITOS AVANZADOS:
 Genera una rutina premium completa y detallada.`;
   }
 
-  private validateAndFormatAdvancedRoutine(routine: any, userProfile: UserProfile): AdvancedRoutine {
+  private validateAndFormatAdvancedRoutine(
+    routine: any,
+    userProfile: UserProfile
+  ): AdvancedRoutine {
     // Validación y formateo similar al básico pero más complejo
     return {
       id: `advanced_${Date.now()}`,
-      name: routine.name || 'Rutina Avanzada Personalizada',
-      description: routine.description || 'Rutina premium con periodización científica',
-      exercises: routine.exercises?.map((ex: any) => ({
-        name: ex.name || 'Ejercicio',
-        sets: Math.max(1, Math.min(6, ex.sets || 3)),
-        reps: ex.reps || '6-8',
-        rest: Math.max(30, Math.min(300, ex.rest || 120)),
-        rpe: ex.rpe || '7-8',
-        tempo: ex.tempo || '3-1-2-1',
-        notes: ex.notes || '',
-        muscleGroups: Array.isArray(ex.muscleGroups) ? ex.muscleGroups : ['general'],
-        equipment: ex.equipment || 'peso_corporal',
-        alternatives: ex.alternatives || [],
-        formCues: ex.formCues || [],
-        commonMistakes: ex.commonMistakes || [],
-      })) || [],
+      name: routine.name || "Rutina Avanzada Personalizada",
+      description:
+        routine.description || "Rutina premium con periodización científica",
+      exercises:
+        routine.exercises?.map((ex: any) => ({
+          name: ex.name || "Ejercicio",
+          sets: Math.max(1, Math.min(6, ex.sets || 3)),
+          reps: ex.reps || "6-8",
+          rest: Math.max(30, Math.min(300, ex.rest || 120)),
+          rpe: ex.rpe || "7-8",
+          tempo: ex.tempo || "3-1-2-1",
+          notes: ex.notes || "",
+          muscleGroups: Array.isArray(ex.muscleGroups)
+            ? ex.muscleGroups
+            : ["general"],
+          equipment: ex.equipment || "peso_corporal",
+          alternatives: ex.alternatives || [],
+          formCues: ex.formCues || [],
+          commonMistakes: ex.commonMistakes || [],
+        })) || [],
       periodization: routine.periodization || {
-        type: 'linear',
+        type: "linear",
         phases: [],
         duration: 8,
         deloadFrequency: 4,
@@ -601,16 +629,19 @@ Genera una rutina premium completa y detallada.`;
         activeRecovery: [],
       },
       progressionScheme: routine.progressionScheme || {
-        type: 'linear',
+        type: "linear",
         parameters: {
           weightIncrement: 2.5,
           repIncrement: 1,
           timeframe: 2,
-          criteria: ['Complete all reps', 'RPE below 9'],
+          criteria: ["Complete all reps", "RPE below 9"],
         },
         milestones: [],
       },
-      estimatedDuration: Math.max(30, Math.min(120, routine.estimatedDuration || 60)),
+      estimatedDuration: Math.max(
+        30,
+        Math.min(120, routine.estimatedDuration || 60)
+      ),
       difficulty: userProfile.experienceLevel,
       goals: userProfile.goals,
     };

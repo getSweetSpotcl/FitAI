@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { Card } from './Card';
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { Card } from "./Card";
 
-describe('Card Component', () => {
-  it('renders with default props', () => {
+describe("Card Component", () => {
+  it("renders with default props", () => {
     render(
       <Card>
         <Card.Header>
@@ -14,23 +14,23 @@ describe('Card Component', () => {
         </Card.Content>
       </Card>
     );
-    
-    expect(screen.getByText('Test Title')).toBeInTheDocument();
-    expect(screen.getByText('Test content')).toBeInTheDocument();
+
+    expect(screen.getByText("Test Title")).toBeInTheDocument();
+    expect(screen.getByText("Test content")).toBeInTheDocument();
   });
 
-  it('applies custom className', () => {
+  it("applies custom className", () => {
     render(
       <Card className="custom-card-class">
         <Card.Content>Content</Card.Content>
       </Card>
     );
-    
-    const card = screen.getByText('Content').closest('div');
-    expect(card).toHaveClass('custom-card-class');
+
+    const card = screen.getByText("Content").closest("div");
+    expect(card).toHaveClass("custom-card-class");
   });
 
-  it('renders header with title and description', () => {
+  it("renders header with title and description", () => {
     render(
       <Card>
         <Card.Header>
@@ -39,12 +39,12 @@ describe('Card Component', () => {
         </Card.Header>
       </Card>
     );
-    
-    expect(screen.getByText('Main Title')).toBeInTheDocument();
-    expect(screen.getByText('Card description')).toBeInTheDocument();
+
+    expect(screen.getByText("Main Title")).toBeInTheDocument();
+    expect(screen.getByText("Card description")).toBeInTheDocument();
   });
 
-  it('renders footer content', () => {
+  it("renders footer content", () => {
     render(
       <Card>
         <Card.Content>Main content</Card.Content>
@@ -53,12 +53,12 @@ describe('Card Component', () => {
         </Card.Footer>
       </Card>
     );
-    
-    expect(screen.getByText('Main content')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Action' })).toBeInTheDocument();
+
+    expect(screen.getByText("Main content")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Action" })).toBeInTheDocument();
   });
 
-  it('supports nested content structure', () => {
+  it("supports nested content structure", () => {
     render(
       <Card>
         <Card.Header>
@@ -75,12 +75,12 @@ describe('Card Component', () => {
         </Card.Footer>
       </Card>
     );
-    
-    expect(screen.getByText('Complex Card')).toBeInTheDocument();
-    expect(screen.getByText('With multiple sections')).toBeInTheDocument();
-    expect(screen.getByText('Section 1')).toBeInTheDocument();
-    expect(screen.getByText('Section 2')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+
+    expect(screen.getByText("Complex Card")).toBeInTheDocument();
+    expect(screen.getByText("With multiple sections")).toBeInTheDocument();
+    expect(screen.getByText("Section 1")).toBeInTheDocument();
+    expect(screen.getByText("Section 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 });

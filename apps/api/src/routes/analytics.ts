@@ -1,10 +1,10 @@
-import { Hono } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { authMiddleware } from '../middleware/auth';
-import { AdvancedAnalyticsService } from '../lib/advanced-analytics-service';
-import { createDatabaseClient } from '../db/database';
-import { z } from 'zod';
-import type { PeriodType, ReportFormat, GenerateReportRequest, AnalyticsQuery } from '../types/analytics';
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { z } from "zod";
+import { createDatabaseClient } from "../db/database";
+import { AdvancedAnalyticsService } from "../lib/advanced-analytics-service";
+import { clerkAuth } from "../middleware/clerk-auth";
+import type { PeriodType } from "../types/analytics";
 
 type Bindings = {
   DATABASE_URL: string;
@@ -17,11 +17,11 @@ type Variables = {
   user?: {
     id: string;
     email: string;
-    plan: 'free' | 'premium' | 'pro';
+    plan: "free" | "premium" | "pro";
     userId?: string;
     firstName?: string;
     lastName?: string;
-    role?: 'user' | 'admin';
+    role?: "user" | "admin";
   };
 };
 
@@ -29,63 +29,80 @@ const analytics = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Validation schemas
 const DashboardQuerySchema = z.object({
-  period: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']).optional().default('monthly')
+  period: z
+    .enum(["weekly", "monthly", "quarterly", "yearly"])
+    .optional()
+    .default("monthly"),
 });
 
 const ChartDataQuerySchema = z.object({
   metric: z.string(),
-  period: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']).default('monthly')
+  period: z
+    .enum(["weekly", "monthly", "quarterly", "yearly"])
+    .default("monthly"),
 });
 
 const ReportRequestSchema = z.object({
-  reportType: z.enum(['fitness_summary', 'progress_analysis', 'health_insights', 'custom']),
-  format: z.enum(['pdf', 'csv', 'json']),
+  reportType: z.enum([
+    "fitness_summary",
+    "progress_analysis",
+    "health_insights",
+    "custom",
+  ]),
+  format: z.enum(["pdf", "csv", "json"]),
   period: z.object({
-    startDate: z.string().transform(str => new Date(str)),
-    endDate: z.string().transform(str => new Date(str))
+    startDate: z.string().transform((str) => new Date(str)),
+    endDate: z.string().transform((str) => new Date(str)),
   }),
-  sections: z.object({
-    workoutSummary: z.boolean().optional().default(true),
-    progressCharts: z.boolean().optional().default(true),
-    healthMetrics: z.boolean().optional().default(true),
-    achievements: z.boolean().optional().default(true),
-    insights: z.boolean().optional().default(true),
-    comparisons: z.boolean().optional().default(false),
-    predictions: z.boolean().optional().default(false)
-  }).optional().default({}),
+  sections: z
+    .object({
+      workoutSummary: z.boolean().optional().default(true),
+      progressCharts: z.boolean().optional().default(true),
+      healthMetrics: z.boolean().optional().default(true),
+      achievements: z.boolean().optional().default(true),
+      insights: z.boolean().optional().default(true),
+      comparisons: z.boolean().optional().default(false),
+      predictions: z.boolean().optional().default(false),
+    })
+    .optional()
+    .default({}),
   includeCharts: z.boolean().optional().default(true),
-  chartStyle: z.enum(['minimal', 'detailed']).optional().default('detailed')
+  chartStyle: z.enum(["minimal", "detailed"]).optional().default("detailed"),
 });
 
 // Apply auth middleware to all routes
-analytics.use('*', authMiddleware);
+analytics.use("*", clerkAuth());
 
 /**
  * GET /api/v1/analytics/dashboard
  * Get comprehensive dashboard analytics
  */
-analytics.get('/dashboard', async (c) => {
+analytics.get("/dashboard", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
-    const query = DashboardQuerySchema.parse(c.req.query());
+
+    const _query = DashboardQuerySchema.parse(c.req.query());
     const database = createDatabaseClient(c.env.DATABASE_URL);
     const analyticsService = new AdvancedAnalyticsService(database);
-    const dashboard = await analyticsService.generateDashboardAnalytics(user.id);
-    
+    const dashboard = await analyticsService.generateDashboardAnalytics(
+      user.id
+    );
+
     return c.json({
       success: true,
-      data: dashboard
+      data: dashboard,
     });
   } catch (error) {
-    console.error('Dashboard analytics error:', error);
+    console.error("Dashboard analytics error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to generate dashboard analytics' });
+    throw new HTTPException(500, {
+      message: "Failed to generate dashboard analytics",
+    });
   }
 });
 
@@ -93,38 +110,48 @@ analytics.get('/dashboard', async (c) => {
  * POST /api/v1/analytics/snapshot
  * Create analytics snapshot for a period
  */
-analytics.post('/snapshot', async (c) => {
+analytics.post("/snapshot", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
+
     // Check for premium plan
-    if (user.plan === 'free') {
-      throw new HTTPException(402, { message: 'Premium plan required for analytics snapshots' });
+    if (user.plan === "free") {
+      throw new HTTPException(402, {
+        message: "Premium plan required for analytics snapshots",
+      });
     }
-    
+
     const { periodType } = await c.req.json();
-    
-    if (!periodType || !['weekly', 'monthly', 'quarterly', 'yearly'].includes(periodType)) {
-      throw new HTTPException(400, { message: 'Invalid period type' });
+
+    if (
+      !periodType ||
+      !["weekly", "monthly", "quarterly", "yearly"].includes(periodType)
+    ) {
+      throw new HTTPException(400, { message: "Invalid period type" });
     }
-    
+
     const database = createDatabaseClient(c.env.DATABASE_URL);
     const analyticsService = new AdvancedAnalyticsService(database);
-    const snapshot = await analyticsService.createAnalyticsSnapshot(user.id, periodType as PeriodType);
-    
+    const snapshot = await analyticsService.createAnalyticsSnapshot(
+      user.id,
+      periodType as PeriodType
+    );
+
     return c.json({
       success: true,
-      data: snapshot
+      data: snapshot,
     });
   } catch (error) {
-    console.error('Create snapshot error:', error);
+    console.error("Create snapshot error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to create analytics snapshot' });
+    throw new HTTPException(500, {
+      message: "Failed to create analytics snapshot",
+    });
   }
 });
 
@@ -132,32 +159,34 @@ analytics.post('/snapshot', async (c) => {
  * GET /api/v1/analytics/trends
  * Analyze trends and generate insights
  */
-analytics.get('/trends', async (c) => {
+analytics.get("/trends", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
+
     // Check for premium plan
-    if (user.plan === 'free') {
-      throw new HTTPException(402, { message: 'Premium plan required for trend analysis' });
+    if (user.plan === "free") {
+      throw new HTTPException(402, {
+        message: "Premium plan required for trend analysis",
+      });
     }
-    
+
     const database = createDatabaseClient(c.env.DATABASE_URL);
     const analyticsService = new AdvancedAnalyticsService(database);
     const trends = await analyticsService.analyzeTrends(user.id);
-    
+
     return c.json({
       success: true,
-      data: trends
+      data: trends,
     });
   } catch (error) {
-    console.error('Trends analysis error:', error);
+    console.error("Trends analysis error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to analyze trends' });
+    throw new HTTPException(500, { message: "Failed to analyze trends" });
   }
 });
 
@@ -165,32 +194,34 @@ analytics.get('/trends', async (c) => {
  * GET /api/v1/analytics/predictions
  * Generate predictive analysis
  */
-analytics.get('/predictions', async (c) => {
+analytics.get("/predictions", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
+
     // Check for premium plan
-    if (user.plan === 'free') {
-      throw new HTTPException(402, { message: 'Premium plan required for predictions' });
+    if (user.plan === "free") {
+      throw new HTTPException(402, {
+        message: "Premium plan required for predictions",
+      });
     }
-    
+
     const database = createDatabaseClient(c.env.DATABASE_URL);
     const analyticsService = new AdvancedAnalyticsService(database);
     const predictions = await analyticsService.generatePredictions(user.id);
-    
+
     return c.json({
       success: true,
-      data: predictions
+      data: predictions,
     });
   } catch (error) {
-    console.error('Predictions generation error:', error);
+    console.error("Predictions generation error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to generate predictions' });
+    throw new HTTPException(500, { message: "Failed to generate predictions" });
   }
 });
 
@@ -198,30 +229,34 @@ analytics.get('/predictions', async (c) => {
  * GET /api/v1/analytics/charts/:metric
  * Generate chart data for visualization
  */
-analytics.get('/charts/:metric', async (c) => {
+analytics.get("/charts/:metric", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
-    const metric = c.req.param('metric');
+
+    const metric = c.req.param("metric");
     const query = ChartDataQuerySchema.parse(c.req.query());
-    
+
     const database = createDatabaseClient(c.env.DATABASE_URL);
     const analyticsService = new AdvancedAnalyticsService(database);
-    const chartData = await analyticsService.generateChartData(user.id, metric, query.period);
-    
+    const chartData = await analyticsService.generateChartData(
+      user.id,
+      metric,
+      query.period
+    );
+
     return c.json({
       success: true,
-      data: chartData
+      data: chartData,
     });
   } catch (error) {
-    console.error('Chart data generation error:', error);
+    console.error("Chart data generation error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to generate chart data' });
+    throw new HTTPException(500, { message: "Failed to generate chart data" });
   }
 });
 
@@ -229,21 +264,23 @@ analytics.get('/charts/:metric', async (c) => {
  * POST /api/v1/analytics/reports/generate
  * Generate and queue a comprehensive report
  */
-analytics.post('/reports/generate', async (c) => {
+analytics.post("/reports/generate", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
+
     // Check for premium plan
-    if (user.plan === 'free') {
-      throw new HTTPException(402, { message: 'Premium plan required for report generation' });
+    if (user.plan === "free") {
+      throw new HTTPException(402, {
+        message: "Premium plan required for report generation",
+      });
     }
-    
+
     const reportRequest = ReportRequestSchema.parse(await c.req.json());
     const database = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     // Save report request to database
     const reportId = crypto.randomUUID();
     await database`
@@ -255,25 +292,30 @@ analytics.post('/reports/generate', async (c) => {
         ${JSON.stringify(reportRequest.sections)}, 'pending'
       )
     `;
-    
+
     // TODO: Queue background job to generate the actual report
     // For now, we'll return the report ID for polling
-    
-    return c.json({
-      success: true,
-      data: {
-        reportId,
-        status: 'pending',
-        message: 'Report generation started. Poll /reports/{reportId} for status updates.'
-      }
-    }, 202);
-    
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          reportId,
+          status: "pending",
+          message:
+            "Report generation started. Poll /reports/{reportId} for status updates.",
+        },
+      },
+      202
+    );
   } catch (error) {
-    console.error('Report generation error:', error);
+    console.error("Report generation error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to queue report generation' });
+    throw new HTTPException(500, {
+      message: "Failed to queue report generation",
+    });
   }
 });
 
@@ -281,26 +323,26 @@ analytics.post('/reports/generate', async (c) => {
  * GET /api/v1/analytics/reports/:reportId
  * Check report generation status and download
  */
-analytics.get('/reports/:reportId', async (c) => {
+analytics.get("/reports/:reportId", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
-    const reportId = c.req.param('reportId');
+
+    const reportId = c.req.param("reportId");
     const database = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     const result = await database`
       SELECT * FROM user_reports
       WHERE id = ${reportId} AND user_id = ${user.id}
     `;
-    
+
     const report = (result as any[])[0];
     if (!report) {
-      throw new HTTPException(404, { message: 'Report not found' });
+      throw new HTTPException(404, { message: "Report not found" });
     }
-    
+
     return c.json({
       success: true,
       data: {
@@ -313,16 +355,15 @@ analytics.get('/reports/:reportId', async (c) => {
         generatedAt: report.generated_at,
         expiresAt: report.expires_at,
         downloadCount: report.download_count,
-        errorMessage: report.error_message
-      }
+        errorMessage: report.error_message,
+      },
     });
-    
   } catch (error) {
-    console.error('Report status error:', error);
+    console.error("Report status error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to get report status' });
+    throw new HTTPException(500, { message: "Failed to get report status" });
   }
 });
 
@@ -330,23 +371,23 @@ analytics.get('/reports/:reportId', async (c) => {
  * GET /api/v1/analytics/insights
  * Get recent workout insights
  */
-analytics.get('/insights', async (c) => {
+analytics.get("/insights", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
-    const limit = parseInt(c.req.query('limit') || '10');
-    const unreadOnly = c.req.query('unread') === 'true';
+
+    const limit = parseInt(c.req.query("limit") || "10");
+    const unreadOnly = c.req.query("unread") === "true";
     const database = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     let whereClause = `user_id = '${user.id}' AND is_dismissed = FALSE`;
-    
+
     if (unreadOnly) {
-      whereClause += ' AND is_read = FALSE';
+      whereClause += " AND is_read = FALSE";
     }
-    
+
     const result = await database.unsafe(`
       SELECT * FROM workout_insights
       WHERE ${whereClause}
@@ -354,8 +395,8 @@ analytics.get('/insights', async (c) => {
       ORDER BY importance_score DESC, detected_at DESC
       LIMIT ${limit}
     `);
-    
-    const insights = ((result as unknown) as any[]).map(row => ({
+
+    const insights = (result as unknown as any[]).map((row) => ({
       id: row.id,
       insightType: row.insight_type,
       insightCategory: row.insight_category,
@@ -366,20 +407,19 @@ analytics.get('/insights', async (c) => {
       confidenceScore: row.confidence_score,
       actionable: row.actionable,
       isRead: row.is_read,
-      detectedAt: row.detected_at
+      detectedAt: row.detected_at,
     }));
-    
+
     return c.json({
       success: true,
-      data: insights
+      data: insights,
     });
-    
   } catch (error) {
-    console.error('Insights fetch error:', error);
+    console.error("Insights fetch error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to fetch insights' });
+    throw new HTTPException(500, { message: "Failed to fetch insights" });
   }
 });
 
@@ -387,30 +427,29 @@ analytics.get('/insights', async (c) => {
  * PUT /api/v1/analytics/insights/:insightId/read
  * Mark insight as read
  */
-analytics.put('/insights/:insightId/read', async (c) => {
+analytics.put("/insights/:insightId/read", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
-    const insightId = c.req.param('insightId');
+
+    const insightId = c.req.param("insightId");
     const database = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     await database`
       UPDATE workout_insights
       SET is_read = TRUE
       WHERE id = ${insightId} AND user_id = ${user.id}
     `;
-    
+
     return c.json({ success: true });
-    
   } catch (error) {
-    console.error('Mark insight read error:', error);
+    console.error("Mark insight read error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to mark insight as read' });
+    throw new HTTPException(500, { message: "Failed to mark insight as read" });
   }
 });
 
@@ -418,36 +457,37 @@ analytics.put('/insights/:insightId/read', async (c) => {
  * PUT /api/v1/analytics/insights/:insightId/feedback
  * Provide feedback on insight
  */
-analytics.put('/insights/:insightId/feedback', async (c) => {
+analytics.put("/insights/:insightId/feedback", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
-    const insightId = c.req.param('insightId');
+
+    const insightId = c.req.param("insightId");
     const { feedback } = await c.req.json();
-    
-    if (!['helpful', 'not_helpful', 'irrelevant'].includes(feedback)) {
-      throw new HTTPException(400, { message: 'Invalid feedback value' });
+
+    if (!["helpful", "not_helpful", "irrelevant"].includes(feedback)) {
+      throw new HTTPException(400, { message: "Invalid feedback value" });
     }
-    
+
     const database = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     await database`
       UPDATE workout_insights
       SET user_feedback = ${feedback}, is_read = TRUE
       WHERE id = ${insightId} AND user_id = ${user.id}
     `;
-    
+
     return c.json({ success: true });
-    
   } catch (error) {
-    console.error('Insight feedback error:', error);
+    console.error("Insight feedback error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to save insight feedback' });
+    throw new HTTPException(500, {
+      message: "Failed to save insight feedback",
+    });
   }
 });
 
@@ -455,31 +495,31 @@ analytics.put('/insights/:insightId/feedback', async (c) => {
  * GET /api/v1/analytics/achievements
  * Get user achievements
  */
-analytics.get('/achievements', async (c) => {
+analytics.get("/achievements", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: "Authentication required" });
     }
-    
-    const limit = parseInt(c.req.query('limit') || '20');
-    const category = c.req.query('category');
+
+    const limit = parseInt(c.req.query("limit") || "20");
+    const category = c.req.query("category");
     const database = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     let whereClause = `user_id = '${user.id}'`;
-    
+
     if (category) {
       whereClause += ` AND category = '${category}'`;
     }
-    
+
     const result = await database.unsafe(`
       SELECT * FROM user_achievements
       WHERE ${whereClause}
       ORDER BY achieved_at DESC
       LIMIT ${limit}
     `);
-    
-    const achievements = ((result as unknown) as any[]).map(row => ({
+
+    const achievements = (result as unknown as any[]).map((row) => ({
       id: row.id,
       achievementType: row.achievement_type,
       category: row.category,
@@ -489,25 +529,28 @@ analytics.get('/achievements', async (c) => {
       badgeColor: row.badge_color,
       valueAchieved: parseFloat(row.value_achieved),
       unit: row.unit,
-      previousBest: row.previous_best ? parseFloat(row.previous_best) : undefined,
-      improvementPercent: row.improvement_percent ? parseFloat(row.improvement_percent) : undefined,
+      previousBest: row.previous_best
+        ? parseFloat(row.previous_best)
+        : undefined,
+      improvementPercent: row.improvement_percent
+        ? parseFloat(row.improvement_percent)
+        : undefined,
       difficultyLevel: row.difficulty_level,
       rarityScore: row.rarity_score,
       pointsAwarded: row.points_awarded,
-      achievedAt: row.achieved_at
+      achievedAt: row.achieved_at,
     }));
-    
+
     return c.json({
       success: true,
-      data: achievements
+      data: achievements,
     });
-    
   } catch (error) {
-    console.error('Achievements fetch error:', error);
+    console.error("Achievements fetch error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to fetch achievements' });
+    throw new HTTPException(500, { message: "Failed to fetch achievements" });
   }
 });
 

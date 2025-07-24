@@ -1,7 +1,7 @@
-import { UserButton } from '@clerk/nextjs';
-import Link from 'next/link';
-import { auth } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
+import { UserButton } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({
   children,
@@ -11,7 +11,7 @@ export default async function DashboardLayout({
   const { userId } = await auth();
 
   if (!userId) {
-    redirect('/sign-in');
+    redirect("/sign-in");
   }
 
   return (
@@ -62,7 +62,7 @@ export default async function DashboardLayout({
                 afterSignOutUrl="/"
                 appearance={{
                   elements: {
-                    avatarBox: 'w-8 h-8',
+                    avatarBox: "w-8 h-8",
                   },
                 }}
               />

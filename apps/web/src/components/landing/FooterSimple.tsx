@@ -1,78 +1,81 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Button } from '../ui';
-import { 
-  Download, 
-  Mail, 
-  MapPin, 
-  Phone, 
+import {
+  Download,
   ExternalLink,
+  FileText,
+  Heart,
   Instagram,
+  Mail,
+  MapPin,
+  Phone,
+  Shield,
   Twitter,
   Youtube,
-  Shield,
-  FileText,
-  Heart
-} from 'lucide-react';
+} from "lucide-react";
+import type React from "react";
+import { Button } from "../ui";
 
 export const FooterSimple: React.FC = () => {
   const footerLinks = {
     product: {
-      title: 'Producto',
+      title: "Producto",
       links: [
-        { label: 'Características', href: '#features' },
-        { label: 'Precios', href: '#pricing' },
-        { label: 'Actualizaciones', href: '#' },
-        { label: 'Roadmap', href: '#' },
-      ]
+        { label: "Características", href: "#features" },
+        { label: "Precios", href: "#pricing" },
+        { label: "Actualizaciones", href: "#" },
+        { label: "Roadmap", href: "#" },
+      ],
     },
     resources: {
-      title: 'Recursos',
+      title: "Recursos",
       links: [
-        { label: 'Documentación', href: '/docs' },
-        { label: 'Guías de Entrenamiento', href: '/docs/guides' },
-        { label: 'API', href: '/docs/api' },
-        { label: 'Blog', href: '#' },
-      ]
+        { label: "Documentación", href: "/docs" },
+        { label: "Guías de Entrenamiento", href: "/docs/guides" },
+        { label: "API", href: "/docs/api" },
+        { label: "Blog", href: "#" },
+      ],
     },
     support: {
-      title: 'Soporte',
+      title: "Soporte",
       links: [
-        { label: 'Centro de Ayuda', href: '/docs/support' },
-        { label: 'Comunidad', href: '#' },
-        { label: 'Estado del Servicio', href: '#' },
-        { label: 'Reportar Bug', href: '#' },
-      ]
+        { label: "Centro de Ayuda", href: "/docs/support" },
+        { label: "Comunidad", href: "#" },
+        { label: "Estado del Servicio", href: "#" },
+        { label: "Reportar Bug", href: "#" },
+      ],
     },
     company: {
-      title: 'Empresa',
+      title: "Empresa",
       links: [
-        { label: 'Acerca de', href: '#' },
-        { label: 'Carreras', href: '#' },
-        { label: 'Prensa', href: '#' },
-        { label: 'Contacto', href: '#contact' },
-      ]
-    }
+        { label: "Acerca de", href: "#" },
+        { label: "Carreras", href: "#" },
+        { label: "Prensa", href: "#" },
+        { label: "Contacto", href: "#contact" },
+      ],
+    },
   };
 
   const socialLinks = [
-    { icon: Instagram, href: '#', label: 'Instagram' },
-    { icon: Twitter, href: '#', label: 'Twitter' },
-    { icon: Youtube, href: '#', label: 'YouTube' },
+    { icon: Instagram, href: "#", label: "Instagram" },
+    { icon: Twitter, href: "#", label: "Twitter" },
+    { icon: Youtube, href: "#", label: "YouTube" },
   ];
 
   const scrollToSection = (href: string) => {
-    if (href.startsWith('#')) {
+    if (href.startsWith("#")) {
       const element = document.querySelector(href);
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
+        element.scrollIntoView({ behavior: "smooth" });
       }
     }
   };
 
   return (
-    <footer id="footer" className="relative bg-gray-900 border-t border-gray-800">
+    <footer
+      id="footer"
+      className="relative bg-gray-900 border-t border-gray-800"
+    >
       {/* CTA Section */}
       <div className="relative py-20">
         <div className="absolute inset-0 hero-gradient opacity-10" />
@@ -82,11 +85,12 @@ export const FooterSimple: React.FC = () => {
               ¿Listo para Transformar tu Fitness?
             </h2>
             <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-              Únete a miles de usuarios que ya están entrenando más inteligente con FitAI.
+              Únete a miles de usuarios que ya están entrenando más inteligente
+              con FitAI.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 leftIcon={<Download className="w-5 h-5" />}
                 className="animate-pulse-glow"
               >
@@ -118,8 +122,9 @@ export const FooterSimple: React.FC = () => {
                 </div>
 
                 <p className="text-gray-300 mb-6 leading-relaxed">
-                  La primera aplicación de fitness con inteligencia artificial diseñada 
-                  específicamente para Chile. Entrena inteligente, progresa más rápido.
+                  La primera aplicación de fitness con inteligencia artificial
+                  diseñada específicamente para Chile. Entrena inteligente,
+                  progresa más rápido.
                 </p>
 
                 {/* Contact Info */}
@@ -160,22 +165,24 @@ export const FooterSimple: React.FC = () => {
             {/* Links Columns */}
             {Object.entries(footerLinks).map(([key, section]) => (
               <div key={key}>
-                <h3 className="text-white font-semibold mb-4">{section.title}</h3>
+                <h3 className="text-white font-semibold mb-4">
+                  {section.title}
+                </h3>
                 <ul className="space-y-3">
                   {section.links.map((link) => (
                     <li key={link.label}>
                       <button
                         onClick={() => {
-                          if (link.href.startsWith('/')) {
-                            window.open(link.href, '_blank');
-                          } else if (link.href.startsWith('#')) {
+                          if (link.href.startsWith("/")) {
+                            window.open(link.href, "_blank");
+                          } else if (link.href.startsWith("#")) {
                             scrollToSection(link.href);
                           }
                         }}
                         className="text-gray-400 hover:text-white transition-colors flex items-center gap-1 text-sm group"
                       >
                         {link.label}
-                        {link.href.startsWith('/') && (
+                        {link.href.startsWith("/") && (
                           <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                         )}
                       </button>

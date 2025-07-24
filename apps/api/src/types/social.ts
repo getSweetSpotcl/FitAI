@@ -7,7 +7,7 @@ export interface UserSocialProfile {
   displayName: string;
   bio?: string;
   avatarUrl?: string;
-  
+
   // Privacy settings
   profilePublic: boolean;
   showWorkouts: boolean;
@@ -15,18 +15,18 @@ export interface UserSocialProfile {
   showAchievements: boolean;
   allowFollowers: boolean;
   allowChallenges: boolean;
-  
+
   // Social stats
   followersCount: number;
   followingCount: number;
   sharedRoutinesCount: number;
   likesReceived: number;
-  
+
   // Fitness info
-  fitnessLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  fitnessLevel: "beginner" | "intermediate" | "advanced" | "expert";
   yearsTraining?: number;
   preferredWorkoutTypes: string[];
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,8 +36,8 @@ export interface SocialConnection {
   id: string;
   followerId: string;
   followingId: string;
-  status: 'pending' | 'accepted' | 'blocked';
-  connectionType: 'follow' | 'friend' | 'mentor';
+  status: "pending" | "accepted" | "blocked";
+  connectionType: "follow" | "friend" | "mentor";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,22 +53,22 @@ export interface SharedRoutine {
   id: string;
   userId: string;
   routineId?: string;
-  
+
   name: string;
   description?: string;
   difficulty: number; // 1-10
   estimatedDuration?: number; // minutes
   category?: string;
   tags: string[];
-  
+
   // Routine structure
   exercises: SharedExercise[];
-  
+
   // Visibility
   isPublic: boolean;
   allowModifications: boolean;
   featured: boolean;
-  
+
   // Social metrics
   likesCount: number;
   savesCount: number;
@@ -76,10 +76,10 @@ export interface SharedRoutine {
   downloadsCount: number;
   ratingAverage: number;
   ratingCount: number;
-  
+
   // Creator info
   creator?: UserSocialProfile;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -102,7 +102,7 @@ export interface RoutineInteraction {
   id: string;
   userId: string;
   routineId: string;
-  interactionType: 'like' | 'save' | 'share' | 'rate';
+  interactionType: "like" | "save" | "share" | "rate";
   rating?: number; // 1-5 for ratings
   createdAt: Date;
 }
@@ -112,21 +112,21 @@ export interface WorkoutPost {
   id: string;
   userId: string;
   workoutSessionId?: string;
-  
+
   caption?: string;
   workoutData?: any; // Workout snapshot
   mediaUrls: string[];
-  
-  postType: 'workout' | 'achievement' | 'progress' | 'milestone';
-  visibility: 'public' | 'followers' | 'private';
-  
+
+  postType: "workout" | "achievement" | "progress" | "milestone";
+  visibility: "public" | "followers" | "private";
+
   likesCount: number;
   commentsCount: number;
   sharesCount: number;
-  
+
   // User info
   author?: UserSocialProfile;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -136,11 +136,11 @@ export interface PostInteraction {
   id: string;
   userId: string;
   postId: string;
-  interactionType: 'like' | 'comment' | 'share';
+  interactionType: "like" | "comment" | "share";
   content?: string; // For comments
   createdAt: Date;
   updatedAt: Date;
-  
+
   // User info for display
   user?: UserSocialProfile;
 }
@@ -149,47 +149,47 @@ export interface PostInteraction {
 export interface Challenge {
   id: string;
   creatorId?: string;
-  
+
   name: string;
   description: string;
-  challengeType: 'individual' | 'team' | 'global';
-  category: 'strength' | 'endurance' | 'consistency' | 'volume' | 'special';
-  
+  challengeType: "individual" | "team" | "global";
+  category: "strength" | "endurance" | "consistency" | "volume" | "special";
+
   startDate: Date;
   endDate: Date;
   registrationEndDate?: Date;
-  
+
   rules: ChallengeRule[];
   entryRequirements: Record<string, any>;
   rewards: ChallengeReward[];
-  
+
   maxParticipants?: number;
   teamSize?: number;
   isPublic: boolean;
   featured: boolean;
-  
+
   participantsCount: number;
   teamsCount: number;
-  status: 'draft' | 'active' | 'completed' | 'cancelled';
-  
+  status: "draft" | "active" | "completed" | "cancelled";
+
   // Creator info
   creator?: UserSocialProfile;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface ChallengeRule {
   parameter: string; // What to measure (e.g., 'workout_days', 'total_volume')
-  condition: 'min' | 'max' | 'exact'; // How to evaluate
+  condition: "min" | "max" | "exact"; // How to evaluate
   target: number; // Target value
   unit: string; // Unit of measurement
   description?: string;
 }
 
 export interface ChallengeReward {
-  position: 'winner' | 'top3' | 'top10' | 'top50' | 'participant';
-  type: 'achievement' | 'premium_time' | 'discount' | 'badge' | 'points';
+  position: "winner" | "top3" | "top10" | "top50" | "participant";
+  type: "achievement" | "premium_time" | "discount" | "badge" | "points";
   value: string;
   description?: string;
 }
@@ -200,18 +200,18 @@ export interface ChallengeParticipant {
   challengeId: string;
   userId: string;
   teamId?: string;
-  
-  status: 'active' | 'completed' | 'dropped_out' | 'disqualified';
-  
+
+  status: "active" | "completed" | "dropped_out" | "disqualified";
+
   currentProgress: Record<string, any>;
   bestResult?: number;
   finalPosition?: number;
   rewardsEarned: ChallengeReward[];
-  
+
   joinedAt: Date;
   completedAt?: Date;
   updatedAt: Date;
-  
+
   // User info
   participant?: UserSocialProfile;
 }
@@ -221,19 +221,19 @@ export interface ChallengeTeam {
   id: string;
   challengeId: string;
   captainId: string;
-  
+
   name: string;
   description?: string;
   teamColor?: string;
-  
+
   membersCount: number;
   totalProgress: number;
   teamRanking?: number;
-  
+
   // Members info
   captain?: UserSocialProfile;
   members?: UserSocialProfile[];
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -242,25 +242,25 @@ export interface ChallengeTeam {
 export interface CommunityGroup {
   id: string;
   creatorId: string;
-  
+
   name: string;
   description?: string;
-  groupType: 'public' | 'private' | 'premium_only';
+  groupType: "public" | "private" | "premium_only";
   category?: string;
-  
+
   requiresApproval: boolean;
   allowPosts: boolean;
   allowMedia: boolean;
-  
+
   membersCount: number;
   postsCount: number;
-  
+
   moderators: string[]; // User IDs
   rules?: string;
-  
+
   // Creator info
   creator?: UserSocialProfile;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -270,13 +270,13 @@ export interface GroupMembership {
   id: string;
   groupId: string;
   userId: string;
-  
-  role: 'member' | 'moderator' | 'admin';
-  status: 'pending' | 'active' | 'banned';
-  
+
+  role: "member" | "moderator" | "admin";
+  status: "pending" | "active" | "banned";
+
   joinedAt: Date;
   updatedAt: Date;
-  
+
   // User and group info
   user?: UserSocialProfile;
   group?: CommunityGroup;
@@ -288,25 +288,25 @@ export interface GroupPost {
   groupId: string;
   userId: string;
   parentPostId?: string; // For replies
-  
+
   title?: string;
   content: string;
-  postType: 'discussion' | 'question' | 'announcement' | 'workout';
-  
+  postType: "discussion" | "question" | "announcement" | "workout";
+
   mediaUrls: string[];
-  
+
   likesCount: number;
   repliesCount: number;
-  
+
   isPinned: boolean;
   isLocked: boolean;
   isHidden: boolean;
-  
+
   // User and group info
   author?: UserSocialProfile;
   group?: CommunityGroup;
   replies?: GroupPost[];
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -316,22 +316,22 @@ export interface SocialNotification {
   id: string;
   userId: string; // Recipient
   senderId?: string; // Who triggered it
-  
+
   notificationType: string;
   title: string;
   message?: string;
-  
+
   relatedEntityType?: string; // post, routine, challenge, group
   relatedEntityId?: string;
-  
+
   isRead: boolean;
   isDismissed: boolean;
-  
+
   actionData: Record<string, any>; // Data for interactive notifications
-  
+
   // Sender info
   sender?: UserSocialProfile;
-  
+
   createdAt: Date;
   readAt?: Date;
 }
@@ -339,13 +339,13 @@ export interface SocialNotification {
 // Leaderboards
 export interface Leaderboard {
   id: string;
-  boardType: 'global' | 'challenge' | 'group' | 'friends';
+  boardType: "global" | "challenge" | "group" | "friends";
   category: string;
-  period: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all_time';
-  
+  period: "daily" | "weekly" | "monthly" | "yearly" | "all_time";
+
   data: LeaderboardEntry[];
   totalParticipants: number;
-  
+
   lastUpdated: Date;
   validUntil?: Date;
   createdAt: Date;
@@ -358,7 +358,7 @@ export interface LeaderboardEntry {
   value: number;
   unit?: string;
   change?: string; // Position change from previous period
-  
+
   // Additional data for specific contexts
   teamId?: string;
   team?: ChallengeTeam;
@@ -368,20 +368,20 @@ export interface LeaderboardEntry {
 export interface UserBadge {
   id: string;
   userId: string;
-  
+
   badgeType: string;
   badgeName: string;
   badgeDescription?: string;
   badgeIcon?: string;
-  
-  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+
+  rarity: "common" | "uncommon" | "rare" | "epic" | "legendary";
   category?: string;
   pointsAwarded: number;
-  
+
   achievementData: Record<string, any>;
   progressCurrent?: number;
   progressTarget?: number;
-  
+
   isDisplayed: boolean;
   earnedAt: Date;
 }
@@ -390,14 +390,14 @@ export interface UserBadge {
 export interface SocialFeedItem {
   id: string;
   userId: string;
-  
+
   contentType: string; // post, routine, achievement, challenge, etc.
   contentId: string;
   contentData?: any; // Cached content
-  
+
   priorityScore: number;
   relevanceScore: number;
-  
+
   createdAt: Date;
   expiresAt: Date;
 }
@@ -420,15 +420,15 @@ export interface CreateWorkoutPostRequest {
   workoutSessionId?: string;
   workoutData?: any;
   mediaUrls?: string[];
-  postType: 'workout' | 'achievement' | 'progress' | 'milestone';
-  visibility: 'public' | 'followers' | 'private';
+  postType: "workout" | "achievement" | "progress" | "milestone";
+  visibility: "public" | "followers" | "private";
 }
 
 export interface UpdateSocialProfileRequest {
   displayName?: string;
   bio?: string;
   avatarUrl?: string;
-  fitnessLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  fitnessLevel?: "beginner" | "intermediate" | "advanced" | "expert";
   yearsTraining?: number;
   preferredWorkoutTypes?: string[];
   privacy?: {
@@ -444,8 +444,8 @@ export interface UpdateSocialProfileRequest {
 export interface CreateChallengeRequest {
   name: string;
   description: string;
-  challengeType: 'individual' | 'team' | 'global';
-  category: 'strength' | 'endurance' | 'consistency' | 'volume' | 'special';
+  challengeType: "individual" | "team" | "global";
+  category: "strength" | "endurance" | "consistency" | "volume" | "special";
   startDate: Date;
   endDate: Date;
   registrationEndDate?: Date;
@@ -460,7 +460,7 @@ export interface CreateChallengeRequest {
 export interface CreateCommunityGroupRequest {
   name: string;
   description?: string;
-  groupType: 'public' | 'private' | 'premium_only';
+  groupType: "public" | "private" | "premium_only";
   category?: string;
   requiresApproval: boolean;
   allowPosts: boolean;
@@ -471,7 +471,7 @@ export interface CreateCommunityGroupRequest {
 export interface CreateGroupPostRequest {
   title?: string;
   content: string;
-  postType: 'discussion' | 'question' | 'announcement' | 'workout';
+  postType: "discussion" | "question" | "announcement" | "workout";
   mediaUrls?: string[];
   parentPostId?: string; // For replies
 }
@@ -480,7 +480,7 @@ export interface CreateGroupPostRequest {
 export interface SocialFeedQuery {
   page?: number;
   limit?: number;
-  feedType?: 'all' | 'following' | 'groups' | 'challenges';
+  feedType?: "all" | "following" | "groups" | "challenges";
   contentTypes?: string[]; // Filter by content types
 }
 
@@ -490,23 +490,23 @@ export interface SharedRoutinesQuery {
   category?: string;
   difficulty?: number;
   tags?: string[];
-  sortBy?: 'recent' | 'popular' | 'rating';
+  sortBy?: "recent" | "popular" | "rating";
   userId?: string; // Filter by specific user
 }
 
 export interface ChallengesQuery {
   page?: number;
   limit?: number;
-  status?: 'active' | 'upcoming' | 'completed';
+  status?: "active" | "upcoming" | "completed";
   category?: string;
-  challengeType?: 'individual' | 'team' | 'global';
+  challengeType?: "individual" | "team" | "global";
   participating?: boolean; // Show only challenges user is participating in
 }
 
 export interface LeaderboardQuery {
-  boardType?: 'global' | 'challenge' | 'group' | 'friends';
+  boardType?: "global" | "challenge" | "group" | "friends";
   category: string;
-  period: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all_time';
+  period: "daily" | "weekly" | "monthly" | "yearly" | "all_time";
   challengeId?: string; // For challenge-specific leaderboards
   groupId?: string; // For group-specific leaderboards
   limit?: number;
@@ -544,12 +544,12 @@ export interface SocialStats {
   totalWorkoutPosts: number;
   activeChallenges: number;
   totalCommunityGroups: number;
-  
+
   // Engagement metrics
   avgLikesPerPost: number;
   avgCommentsPerPost: number;
   avgSavesPerRoutine: number;
-  
+
   // Growth metrics
   newUsersThisWeek: number;
   newConnectionsThisWeek: number;

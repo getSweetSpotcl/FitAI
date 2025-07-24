@@ -1,9 +1,9 @@
-import { Hono } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { authMiddleware } from '../middleware/auth';
-import { requirePremium, requirePro } from '../middleware/plan-access';
-import { AIResourceManager, UserProfile } from '../lib/ai-cost-control';
-import { PremiumAIService } from '../lib/premium-ai-service';
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { AIResourceManager, type UserProfile } from "../lib/ai-cost-control";
+import { PremiumAIService } from "../lib/premium-ai-service";
+import { clerkAuth } from "../middleware/clerk-auth";
+import { requirePremium, requirePro } from "../middleware/plan-access";
 
 type Bindings = {
   CACHE: KVNamespace;
@@ -15,39 +15,44 @@ type Variables = {
   user?: {
     id: string;
     email: string;
-    plan: 'free' | 'premium' | 'pro';
+    plan: "free" | "premium" | "pro";
   };
 };
 
 const premiumAi = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Apply auth middleware to all routes
-premiumAi.use('*', authMiddleware);
+premiumAi.use("*", clerkAuth());
 
 // Generar rutina avanzada con periodización - Requires Premium or Pro
-premiumAi.post('/generate-advanced-routine', requirePremium(), async (c) => {
+premiumAi.post("/generate-advanced-routine", requirePremium(), async (c) => {
   try {
-    const user = c.get('user');
-    
+    const user = c.get("user");
+
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
-    
-    const requestData = await c.req.json() as {
-      experienceLevel: 'beginner' | 'intermediate' | 'advanced';
+
+    const requestData = (await c.req.json()) as {
+      experienceLevel: "beginner" | "intermediate" | "advanced";
       goals: string[];
       availableDays: number;
       availableEquipment: string[];
       injuries?: string[];
-      periodizationPreference?: 'linear' | 'undulating' | 'block';
+      periodizationPreference?: "linear" | "undulating" | "block";
       focusAreas?: string[];
       timeframe?: number; // weeks
     };
 
     // Validar datos de entrada
-    if (!requestData.experienceLevel || !requestData.goals || !requestData.availableDays) {
-      throw new HTTPException(400, { 
-        message: 'Faltan datos requeridos: experienceLevel, goals, availableDays' 
+    if (
+      !requestData.experienceLevel ||
+      !requestData.goals ||
+      !requestData.availableDays
+    ) {
+      throw new HTTPException(400, {
+        message:
+          "Faltan datos requeridos: experienceLevel, goals, availableDays",
       });
     }
 
@@ -58,136 +63,156 @@ premiumAi.post('/generate-advanced-routine', requirePremium(), async (c) => {
       experienceLevel: requestData.experienceLevel,
       goals: requestData.goals,
       availableDays: Math.max(1, Math.min(7, requestData.availableDays)),
-      availableEquipment: requestData.availableEquipment || ['peso_corporal'],
+      availableEquipment: requestData.availableEquipment || ["peso_corporal"],
       injuries: requestData.injuries,
     };
 
     // Inicializar premium AI service
     const aiManager = new AIResourceManager(c.env.CACHE);
-    const premiumAiService = new PremiumAIService(aiManager, c.env.OPENAI_API_KEY);
+    const premiumAiService = new PremiumAIService(
+      aiManager,
+      c.env.OPENAI_API_KEY
+    );
 
     // Generar rutina avanzada
     const result = await premiumAiService.generateAdvancedRoutine(userProfile);
 
     if (!result.success) {
-      throw new HTTPException(400, { message: result.error || 'Error generando rutina avanzada' });
+      throw new HTTPException(400, {
+        message: result.error || "Error generando rutina avanzada",
+      });
     }
 
     return c.json({
       success: true,
       data: result.data,
-      message: 'Rutina avanzada generada exitosamente',
+      message: "Rutina avanzada generada exitosamente",
       premium: true,
     });
-
   } catch (error) {
-    console.error('Generate advanced routine error:', error);
+    console.error("Generate advanced routine error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error interno del servidor' });
+    throw new HTTPException(500, { message: "Error interno del servidor" });
   }
 });
 
 // Análisis avanzado de patrones de fatiga - Requires Pro
-premiumAi.post('/analyze-fatigue', requirePro(), async (c) => {
+premiumAi.post("/analyze-fatigue", requirePro(), async (c) => {
   try {
-    const user = c.get('user');
-    
+    const user = c.get("user");
+
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const { workoutHistory, timeframe } = await c.req.json();
 
     if (!workoutHistory || !Array.isArray(workoutHistory)) {
-      throw new HTTPException(400, { message: 'workoutHistory es requerido y debe ser un array' });
+      throw new HTTPException(400, {
+        message: "workoutHistory es requerido y debe ser un array",
+      });
     }
 
     if (workoutHistory.length < 5) {
-      throw new HTTPException(400, { 
-        message: 'Se requieren al menos 5 entrenamientos para el análisis de fatiga' 
+      throw new HTTPException(400, {
+        message:
+          "Se requieren al menos 5 entrenamientos para el análisis de fatiga",
       });
     }
 
     const aiManager = new AIResourceManager(c.env.CACHE);
-    const premiumAiService = new PremiumAIService(aiManager, c.env.OPENAI_API_KEY);
+    const premiumAiService = new PremiumAIService(
+      aiManager,
+      c.env.OPENAI_API_KEY
+    );
 
     // Analizar patrones de fatiga
-    const result = await premiumAiService.analyzeFatiguePatterns(workoutHistory);
+    const result =
+      await premiumAiService.analyzeFatiguePatterns(workoutHistory);
 
     if (!result.success) {
-      throw new HTTPException(400, { message: result.error || 'Error analizando fatiga' });
+      throw new HTTPException(400, {
+        message: result.error || "Error analizando fatiga",
+      });
     }
 
     return c.json({
       success: true,
       data: result.data,
-      message: 'Análisis de fatiga completado',
+      message: "Análisis de fatiga completado",
       premium: true,
     });
-
   } catch (error) {
-    console.error('Fatigue analysis error:', error);
+    console.error("Fatigue analysis error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error interno del servidor' });
+    throw new HTTPException(500, { message: "Error interno del servidor" });
   }
 });
 
 // Predicción de progresión de carga - Requires Premium or Pro
-premiumAi.post('/predict-load-progression', requirePremium(), async (c) => {
+premiumAi.post("/predict-load-progression", requirePremium(), async (c) => {
   try {
-    const user = c.get('user');
-    
+    const _user = c.get("user");
+
     const { exerciseHistory, targetExercises } = await c.req.json();
 
     if (!exerciseHistory || !Array.isArray(exerciseHistory)) {
-      throw new HTTPException(400, { message: 'exerciseHistory es requerido y debe ser un array' });
+      throw new HTTPException(400, {
+        message: "exerciseHistory es requerido y debe ser un array",
+      });
     }
 
     if (exerciseHistory.length < 3) {
-      throw new HTTPException(400, { 
-        message: 'Se requieren al menos 3 sesiones de cada ejercicio para predicción de carga' 
+      throw new HTTPException(400, {
+        message:
+          "Se requieren al menos 3 sesiones de cada ejercicio para predicción de carga",
       });
     }
 
     const aiManager = new AIResourceManager(c.env.CACHE);
-    const premiumAiService = new PremiumAIService(aiManager, c.env.OPENAI_API_KEY);
+    const premiumAiService = new PremiumAIService(
+      aiManager,
+      c.env.OPENAI_API_KEY
+    );
 
     // Predecir progresión óptima
-    const result = await premiumAiService.predictOptimalLoadProgression(exerciseHistory);
+    const result =
+      await premiumAiService.predictOptimalLoadProgression(exerciseHistory);
 
     if (!result.success) {
-      throw new HTTPException(400, { message: result.error || 'Error prediciendo progresión' });
+      throw new HTTPException(400, {
+        message: result.error || "Error prediciendo progresión",
+      });
     }
 
     return c.json({
       success: true,
       data: result.data,
-      message: 'Predicción de progresión completada',
+      message: "Predicción de progresión completada",
       premium: true,
     });
-
   } catch (error) {
-    console.error('Load progression prediction error:', error);
+    console.error("Load progression prediction error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error interno del servidor' });
+    throw new HTTPException(500, { message: "Error interno del servidor" });
   }
 });
 
 // Análisis de técnica de ejercicio con video - Requires Pro
-premiumAi.post('/analyze-exercise-form', requirePro(), async (c) => {
+premiumAi.post("/analyze-exercise-form", requirePro(), async (c) => {
   try {
-    const user = c.get('user');
-    
+    const _user = c.get("user");
+
     const { exercise, videoUrl, userLevel } = await c.req.json();
 
     if (!exercise) {
-      throw new HTTPException(400, { message: 'exercise es requerido' });
+      throw new HTTPException(400, { message: "exercise es requerido" });
     }
 
     // Por ahora retornamos análisis mock
@@ -196,66 +221,83 @@ premiumAi.post('/analyze-exercise-form', requirePro(), async (c) => {
       exercise,
       overallScore: 85,
       strengths: [
-        'Buena activación del core',
-        'Rango de movimiento completo',
-        'Tempo controlado en fase excéntrica',
+        "Buena activación del core",
+        "Rango de movimiento completo",
+        "Tempo controlado en fase excéntrica",
       ],
       improvements: [
-        'Mejorar retracción escapular en posición inicial',
-        'Mantener posición neutra de columna durante todo el movimiento',
+        "Mejorar retracción escapular en posición inicial",
+        "Mantener posición neutra de columna durante todo el movimiento",
       ],
       formCues: [
-        'Imagina que sostienes un lápiz entre tus omóplatos',
-        'Respira profundo antes de cada repetición',
-        'Presiona el suelo con los pies para mayor estabilidad',
+        "Imagina que sostienes un lápiz entre tus omóplatos",
+        "Respira profundo antes de cada repetición",
+        "Presiona el suelo con los pies para mayor estabilidad",
       ],
       riskFactors: [
-        'Compensación en hombro izquierdo - considera trabajo unilateral',
+        "Compensación en hombro izquierdo - considera trabajo unilateral",
       ],
       recommendations: [
-        'Reduce 10% el peso y enfócate en la forma',
-        'Incluye ejercicios de movilidad escapular en calentamiento',
-        'Graba desde diferentes ángulos para análisis más completo',
+        "Reduce 10% el peso y enfócate en la forma",
+        "Incluye ejercicios de movilidad escapular en calentamiento",
+        "Graba desde diferentes ángulos para análisis más completo",
       ],
       nextSteps: [
-        'Practica el patrón sin peso por 1 semana',
-        'Incrementa carga gradualmente (2.5kg cada 2 semanas)',
-        'Reevalúa en 4 semanas',
+        "Practica el patrón sin peso por 1 semana",
+        "Incrementa carga gradualmente (2.5kg cada 2 semanas)",
+        "Reevalúa en 4 semanas",
       ],
     };
 
     return c.json({
       success: true,
       data: mockFormAnalysis,
-      message: 'Análisis de técnica completado',
+      message: "Análisis de técnica completado",
       premium: true,
-      note: 'Análisis basado en IA avanzada - Función en beta',
+      note: "Análisis basado en IA avanzada - Función en beta",
     });
-
   } catch (error) {
-    console.error('Form analysis error:', error);
+    console.error("Form analysis error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error interno del servidor' });
+    throw new HTTPException(500, { message: "Error interno del servidor" });
   }
 });
 
 // Obtener características premium disponibles para el usuario
-premiumAi.get('/features', async (c) => {
+premiumAi.get("/features", async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const features = {
-      unlimitedRoutineGeneration: PremiumAIService.hasAccess(user.plan, 'unlimitedRoutineGeneration'),
-      advancedProgressAnalysis: PremiumAIService.hasAccess(user.plan, 'advancedProgressAnalysis'),
-      predictiveLoadManagement: PremiumAIService.hasAccess(user.plan, 'predictiveLoadManagement'),
-      exerciseFormFeedback: PremiumAIService.hasAccess(user.plan, 'exerciseFormFeedback'),
-      personalizedRecoveryAdvice: PremiumAIService.hasAccess(user.plan, 'personalizedRecoveryAdvice'),
-      fatiguePatternAnalysis: PremiumAIService.hasAccess(user.plan, 'fatiguePatternAnalysis'),
+      unlimitedRoutineGeneration: PremiumAIService.hasAccess(
+        user.plan,
+        "unlimitedRoutineGeneration"
+      ),
+      advancedProgressAnalysis: PremiumAIService.hasAccess(
+        user.plan,
+        "advancedProgressAnalysis"
+      ),
+      predictiveLoadManagement: PremiumAIService.hasAccess(
+        user.plan,
+        "predictiveLoadManagement"
+      ),
+      exerciseFormFeedback: PremiumAIService.hasAccess(
+        user.plan,
+        "exerciseFormFeedback"
+      ),
+      personalizedRecoveryAdvice: PremiumAIService.hasAccess(
+        user.plan,
+        "personalizedRecoveryAdvice"
+      ),
+      fatiguePatternAnalysis: PremiumAIService.hasAccess(
+        user.plan,
+        "fatiguePatternAnalysis"
+      ),
     };
 
     return c.json({
@@ -263,35 +305,40 @@ premiumAi.get('/features', async (c) => {
       data: {
         currentPlan: user.plan,
         features,
-        availableFeatures: Object.keys(features).filter(key => features[key as keyof typeof features]),
-        restrictedFeatures: Object.keys(features).filter(key => !features[key as keyof typeof features]),
+        availableFeatures: Object.keys(features).filter(
+          (key) => features[key as keyof typeof features]
+        ),
+        restrictedFeatures: Object.keys(features).filter(
+          (key) => !features[key as keyof typeof features]
+        ),
       },
     });
-
   } catch (error) {
-    console.error('Get premium features error:', error);
-    throw new HTTPException(500, { message: 'Error obteniendo características premium' });
+    console.error("Get premium features error:", error);
+    throw new HTTPException(500, {
+      message: "Error obteniendo características premium",
+    });
   }
 });
 
 // Generar reporte de progreso avanzado - Requires Premium or Pro
-premiumAi.post('/generate-progress-report', requirePremium(), async (c) => {
+premiumAi.post("/generate-progress-report", requirePremium(), async (c) => {
   try {
-    const user = c.get('user');
-    
+    const user = c.get("user");
+
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
-    
-    const { 
-      workoutHistory, 
-      timeframe = 'month',
+
+    const {
+      workoutHistory,
+      timeframe = "month",
       includeCharts = true,
-      includeRecommendations = true 
+      includeRecommendations = true,
     } = await c.req.json();
 
     if (!workoutHistory || !Array.isArray(workoutHistory)) {
-      throw new HTTPException(400, { message: 'workoutHistory es requerido' });
+      throw new HTTPException(400, { message: "workoutHistory es requerido" });
     }
 
     // Generar reporte avanzado mock
@@ -317,57 +364,86 @@ premiumAi.post('/generate-progress-report', requirePremium(), async (c) => {
         { week: 4, volume: 10100 },
       ],
       strengthGains: [
-        { exercise: 'Press de Banca', initialMax: 70, currentMax: 80, improvement: 14.3 },
-        { exercise: 'Sentadilla', initialMax: 90, currentMax: 105, improvement: 16.7 },
-        { exercise: 'Peso Muerto', initialMax: 110, currentMax: 125, improvement: 13.6 },
+        {
+          exercise: "Press de Banca",
+          initialMax: 70,
+          currentMax: 80,
+          improvement: 14.3,
+        },
+        {
+          exercise: "Sentadilla",
+          initialMax: 90,
+          currentMax: 105,
+          improvement: 16.7,
+        },
+        {
+          exercise: "Peso Muerto",
+          initialMax: 110,
+          currentMax: 125,
+          improvement: 13.6,
+        },
       ],
       insights: [
         {
-          type: 'strength',
-          priority: 'high',
-          title: 'Excelente progresión en press de banca',
-          description: 'Tu fuerza en press de banca ha mejorado 14.3% este mes, superando el promedio esperado.',
+          type: "strength",
+          priority: "high",
+          title: "Excelente progresión en press de banca",
+          description:
+            "Tu fuerza en press de banca ha mejorado 14.3% este mes, superando el promedio esperado.",
           actionable: true,
-          recommendation: 'Mantén la progresión actual e incorpora trabajo accesorio para tríceps.',
+          recommendation:
+            "Mantén la progresión actual e incorpora trabajo accesorio para tríceps.",
         },
         {
-          type: 'volume',
-          priority: 'medium', 
-          title: 'Volumen de entrenamiento óptimo',
-          description: 'Tu volumen semanal está en el rango ideal para tu nivel de experiencia.',
+          type: "volume",
+          priority: "medium",
+          title: "Volumen de entrenamiento óptimo",
+          description:
+            "Tu volumen semanal está en el rango ideal para tu nivel de experiencia.",
           actionable: false,
           recommendation: null,
         },
       ],
       recommendations: [
-        'Continúa con el programa actual por 2-3 semanas más',
-        'Considera incrementar volumen en grupos musculares de espalda',
-        'Programa una semana de descarga en 3-4 semanas',
+        "Continúa con el programa actual por 2-3 semanas más",
+        "Considera incrementar volumen en grupos musculares de espalda",
+        "Programa una semana de descarga en 3-4 semanas",
       ],
       nextMilestones: [
-        { exercise: 'Press de Banca', currentMax: 80, targetMax: 85, timeframe: '4 semanas' },
-        { exercise: 'Sentadilla', currentMax: 105, targetMax: 115, timeframe: '6 semanas' },
+        {
+          exercise: "Press de Banca",
+          currentMax: 80,
+          targetMax: 85,
+          timeframe: "4 semanas",
+        },
+        {
+          exercise: "Sentadilla",
+          currentMax: 105,
+          targetMax: 115,
+          timeframe: "6 semanas",
+        },
       ],
       exportOptions: {
-        pdf: user.plan !== 'free',
-        csv: user.plan !== 'free',
-        charts: includeCharts && user.plan !== 'free',
+        pdf: user.plan !== "free",
+        csv: user.plan !== "free",
+        charts: includeCharts && user.plan !== "free",
       },
     };
 
     return c.json({
       success: true,
       data: progressReport,
-      message: 'Reporte de progreso generado exitosamente',
+      message: "Reporte de progreso generado exitosamente",
       premium: true,
     });
-
   } catch (error) {
-    console.error('Progress report generation error:', error);
+    console.error("Progress report generation error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error generando reporte de progreso' });
+    throw new HTTPException(500, {
+      message: "Error generando reporte de progreso",
+    });
   }
 });
 

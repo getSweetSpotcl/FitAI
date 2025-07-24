@@ -1,6 +1,6 @@
-import { Hono } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { createDatabaseClient, getExercises } from '../db/database';
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { createDatabaseClient, getExercises } from "../db/database";
 
 type Bindings = {
   CACHE: KVNamespace;
@@ -10,14 +10,14 @@ type Bindings = {
 const exercises = new Hono<{ Bindings: Bindings }>();
 
 // Get all exercises (public endpoint, no auth required)
-exercises.get('/', async (c) => {
+exercises.get("/", async (c) => {
   try {
-    const category = c.req.query('category');
-    const muscleGroup = c.req.query('muscle_group');
-    const equipment = c.req.query('equipment');
-    const difficulty = c.req.query('difficulty');
-    const limit = parseInt(c.req.query('limit') || '50');
-    const offset = parseInt(c.req.query('offset') || '0');
+    const category = c.req.query("category");
+    const muscleGroup = c.req.query("muscle_group");
+    const equipment = c.req.query("equipment");
+    const difficulty = c.req.query("difficulty");
+    const limit = parseInt(c.req.query("limit") || "50");
+    const offset = parseInt(c.req.query("offset") || "0");
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
 
@@ -46,28 +46,27 @@ exercises.get('/', async (c) => {
         difficulty,
       },
     });
-
   } catch (error) {
-    console.error('Get exercises error:', error);
-    throw new HTTPException(500, { message: 'Failed to get exercises' });
+    console.error("Get exercises error:", error);
+    throw new HTTPException(500, { message: "Failed to get exercises" });
   }
 });
 
 // Get specific exercise
-exercises.get('/:id', async (c) => {
+exercises.get("/:id", async (c) => {
   try {
-    const exerciseId = c.req.param('id');
+    const exerciseId = c.req.param("id");
     const sql = createDatabaseClient(c.env.DATABASE_URL);
 
     // Get exercise from database
-    const result = await sql`
+    const result = (await sql`
       SELECT * FROM exercises 
       WHERE id = ${exerciseId}
       LIMIT 1
-    ` as any;
+    `) as any;
 
     if ((result as any[]).length === 0) {
-      throw new HTTPException(404, { message: 'Exercise not found' });
+      throw new HTTPException(404, { message: "Exercise not found" });
     }
 
     const exercise = result[0];
@@ -76,25 +75,24 @@ exercises.get('/:id', async (c) => {
       success: true,
       data: exercise,
     });
-
   } catch (error) {
-    console.error('Get exercise error:', error);
+    console.error("Get exercise error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Failed to get exercise' });
+    throw new HTTPException(500, { message: "Failed to get exercise" });
   }
 });
 
 // Search exercises
-exercises.get('/search/:query', async (c) => {
+exercises.get("/search/:query", async (c) => {
   try {
-    const query = c.req.param('query');
-    const limit = parseInt(c.req.query('limit') || '20');
+    const query = c.req.param("query");
+    const limit = parseInt(c.req.query("limit") || "20");
     const sql = createDatabaseClient(c.env.DATABASE_URL);
 
     // Search exercises by name (both English and Spanish)
-    const searchResults = await sql`
+    const searchResults = (await sql`
       SELECT id, name, name_es, muscle_groups, equipment, difficulty
       FROM exercises 
       WHERE LOWER(name) LIKE ${`%${query.toLowerCase()}%`}
@@ -109,7 +107,7 @@ exercises.get('/search/:query', async (c) => {
         END,
         name_es
       LIMIT ${limit}
-    ` as any;
+    `) as any;
 
     return c.json({
       success: true,
@@ -117,15 +115,14 @@ exercises.get('/search/:query', async (c) => {
       query,
       count: (searchResults as any[]).length,
     });
-
   } catch (error) {
-    console.error('Search exercises error:', error);
-    throw new HTTPException(500, { message: 'Failed to search exercises' });
+    console.error("Search exercises error:", error);
+    throw new HTTPException(500, { message: "Failed to search exercises" });
   }
 });
 
 // Get exercise categories
-exercises.get('/meta/categories', async (c) => {
+exercises.get("/meta/categories", async (c) => {
   try {
     const sql = createDatabaseClient(c.env.DATABASE_URL);
 
@@ -138,62 +135,59 @@ exercises.get('/meta/categories', async (c) => {
       success: true,
       data: categories,
     });
-
   } catch (error) {
-    console.error('Get categories error:', error);
-    throw new HTTPException(500, { message: 'Failed to get categories' });
+    console.error("Get categories error:", error);
+    throw new HTTPException(500, { message: "Failed to get categories" });
   }
 });
 
 // Get muscle groups
-exercises.get('/meta/muscle-groups', async (c) => {
+exercises.get("/meta/muscle-groups", async (c) => {
   try {
     const muscleGroups = [
-      { id: 'chest', name: 'Chest' },
-      { id: 'back', name: 'Back' },
-      { id: 'shoulders', name: 'Shoulders' },
-      { id: 'biceps', name: 'Biceps' },
-      { id: 'triceps', name: 'Triceps' },
-      { id: 'legs', name: 'Legs' },
-      { id: 'glutes', name: 'Glutes' },
-      { id: 'core', name: 'Core' },
-      { id: 'hamstrings', name: 'Hamstrings' },
-      { id: 'calves', name: 'Calves' },
+      { id: "chest", name: "Chest" },
+      { id: "back", name: "Back" },
+      { id: "shoulders", name: "Shoulders" },
+      { id: "biceps", name: "Biceps" },
+      { id: "triceps", name: "Triceps" },
+      { id: "legs", name: "Legs" },
+      { id: "glutes", name: "Glutes" },
+      { id: "core", name: "Core" },
+      { id: "hamstrings", name: "Hamstrings" },
+      { id: "calves", name: "Calves" },
     ];
 
     return c.json({
       success: true,
       data: muscleGroups,
     });
-
   } catch (error) {
-    console.error('Get muscle groups error:', error);
-    throw new HTTPException(500, { message: 'Failed to get muscle groups' });
+    console.error("Get muscle groups error:", error);
+    throw new HTTPException(500, { message: "Failed to get muscle groups" });
   }
 });
 
 // Get equipment types
-exercises.get('/meta/equipment', async (c) => {
+exercises.get("/meta/equipment", async (c) => {
   try {
     const equipment = [
-      { id: 'barbell', name: 'Barbell' },
-      { id: 'dumbbell', name: 'Dumbbell' },
-      { id: 'kettlebell', name: 'Kettlebell' },
-      { id: 'pullup_bar', name: 'Pull-up Bar' },
-      { id: 'resistance_bands', name: 'Resistance Bands' },
-      { id: 'bodyweight', name: 'Bodyweight' },
-      { id: 'machine', name: 'Machine' },
-      { id: 'cable', name: 'Cable' },
+      { id: "barbell", name: "Barbell" },
+      { id: "dumbbell", name: "Dumbbell" },
+      { id: "kettlebell", name: "Kettlebell" },
+      { id: "pullup_bar", name: "Pull-up Bar" },
+      { id: "resistance_bands", name: "Resistance Bands" },
+      { id: "bodyweight", name: "Bodyweight" },
+      { id: "machine", name: "Machine" },
+      { id: "cable", name: "Cable" },
     ];
 
     return c.json({
       success: true,
       data: equipment,
     });
-
   } catch (error) {
-    console.error('Get equipment error:', error);
-    throw new HTTPException(500, { message: 'Failed to get equipment' });
+    console.error("Get equipment error:", error);
+    throw new HTTPException(500, { message: "Failed to get equipment" });
   }
 });
 

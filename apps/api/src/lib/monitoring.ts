@@ -16,7 +16,7 @@ export interface MonitoringEvent {
 export class ProductionMonitoring {
   private environment: string;
 
-  constructor(environment: string = 'production') {
+  constructor(environment: string = "production") {
     this.environment = environment;
   }
 
@@ -32,7 +32,7 @@ export class ProductionMonitoring {
     error?: string
   ) {
     const event: MonitoringEvent = {
-      event: 'api_call',
+      event: "api_call",
       timestamp: new Date().toISOString(),
       environment: this.environment,
       userId,
@@ -59,7 +59,7 @@ export class ProductionMonitoring {
     cost: number
   ) {
     const event: MonitoringEvent = {
-      event: 'ai_usage',
+      event: "ai_usage",
       timestamp: new Date().toISOString(),
       environment: this.environment,
       userId,
@@ -84,7 +84,7 @@ export class ProductionMonitoring {
     error?: string
   ) {
     const event: MonitoringEvent = {
-      event: 'db_query',
+      event: "db_query",
       timestamp: new Date().toISOString(),
       environment: this.environment,
       duration,
@@ -102,12 +102,12 @@ export class ProductionMonitoring {
    * Track cache hit/miss rates
    */
   async trackCacheOperation(
-    operation: 'hit' | 'miss' | 'set' | 'delete',
+    operation: "hit" | "miss" | "set" | "delete",
     key: string,
     duration?: number
   ) {
     const event: MonitoringEvent = {
-      event: 'cache_operation',
+      event: "cache_operation",
       timestamp: new Date().toISOString(),
       environment: this.environment,
       duration,
@@ -129,7 +129,7 @@ export class ProductionMonitoring {
     metadata?: Record<string, any>
   ) {
     const event: MonitoringEvent = {
-      event: 'user_action',
+      event: "user_action",
       timestamp: new Date().toISOString(),
       environment: this.environment,
       userId,
@@ -153,7 +153,7 @@ export class ProductionMonitoring {
     paymentMethod: string
   ) {
     const event: MonitoringEvent = {
-      event: 'payment',
+      event: "payment",
       timestamp: new Date().toISOString(),
       environment: this.environment,
       userId,
@@ -175,20 +175,20 @@ export class ProductionMonitoring {
     try {
       // In production, this would send to your analytics service
       // For now, we'll use Cloudflare Analytics and console logging
-      
-      if (this.environment === 'production') {
+
+      if (this.environment === "production") {
         // Send to external analytics service (e.g., Mixpanel, Amplitude)
         // await this.sendToAnalytics(event);
-        
+
         // Log to Cloudflare Workers logs
-        console.log('ANALYTICS_EVENT', JSON.stringify(event));
+        console.log("ANALYTICS_EVENT", JSON.stringify(event));
       } else {
         // Development/staging logging
-        console.log('MONITORING_EVENT', event);
+        console.log("MONITORING_EVENT", event);
       }
     } catch (error) {
       // Never let monitoring break the main application
-      console.error('Failed to send monitoring event:', error);
+      console.error("Failed to send monitoring event:", error);
     }
   }
 
@@ -197,10 +197,10 @@ export class ProductionMonitoring {
    */
   async healthCheck(): Promise<boolean> {
     try {
-      await this.trackApiCall('/health', 'GET', 200, 10);
+      await this.trackApiCall("/health", "GET", 200, 10);
       return true;
     } catch (error) {
-      console.error('Monitoring health check failed:', error);
+      console.error("Monitoring health check failed:", error);
       return false;
     }
   }
@@ -217,10 +217,10 @@ export function createMonitoringMiddleware(monitoring: ProductionMonitoring) {
 
     try {
       await next();
-      
+
       const duration = Date.now() - start;
       const statusCode = c.res.status;
-      const userId = c.get('userId'); // Assuming user ID is set in context
+      const userId = c.get("userId"); // Assuming user ID is set in context
 
       await monitoring.trackApiCall(
         endpoint,
@@ -231,7 +231,7 @@ export function createMonitoringMiddleware(monitoring: ProductionMonitoring) {
       );
     } catch (error) {
       const duration = Date.now() - start;
-      const userId = c.get('userId');
+      const userId = c.get("userId");
 
       await monitoring.trackApiCall(
         endpoint,
@@ -239,7 +239,7 @@ export function createMonitoringMiddleware(monitoring: ProductionMonitoring) {
         500,
         duration,
         userId,
-        error instanceof Error ? error.message : 'Unknown error'
+        error instanceof Error ? error.message : "Unknown error"
       );
 
       throw error; // Re-throw to maintain error handling flow
@@ -254,7 +254,7 @@ export function createErrorHandler(monitoring: ProductionMonitoring) {
   return async (error: Error, c: any) => {
     const { method, url } = c.req;
     const endpoint = new URL(url).pathname;
-    const userId = c.get('userId');
+    const userId = c.get("userId");
 
     await monitoring.trackApiCall(
       endpoint,
@@ -268,8 +268,8 @@ export function createErrorHandler(monitoring: ProductionMonitoring) {
     // Return appropriate error response
     return c.json(
       {
-        error: 'Internal Server Error',
-        message: 'An unexpected error occurred',
+        error: "Internal Server Error",
+        message: "An unexpected error occurred",
         timestamp: new Date().toISOString(),
       },
       500

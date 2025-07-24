@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
 // Force dynamic rendering to avoid SSG issues
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from 'react';
-import { 
-  Users, 
-  DollarSign, 
-  Brain, 
-  TrendingUp, 
+import {
   Activity,
-  Zap,
+  BarChart3,
+  Brain,
+  DollarSign,
   Shield,
-  BarChart3
-} from 'lucide-react';
+  TrendingUp,
+  Users,
+  Zap,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 // Mock data - in production this would come from the API
 const mockStats = {
@@ -26,7 +26,7 @@ const mockStats = {
   proUsers: 23,
   totalWorkouts: 5643,
   aiRequestsToday: 142,
-  systemHealth: 99.8
+  systemHealth: 99.8,
 };
 
 interface StatCardProps {
@@ -44,11 +44,13 @@ function StatCard({ title, value, change, icon, isPositive }: StatCardProps) {
         <div className="p-3 rounded-xl energy-gradient energy-shadow">
           {icon}
         </div>
-        <div className={`text-sm font-medium px-2 py-1 rounded-lg ${
-          isPositive 
-            ? 'bg-green-500/20 text-green-400' 
-            : 'bg-red-500/20 text-red-400'
-        }`}>
+        <div
+          className={`text-sm font-medium px-2 py-1 rounded-lg ${
+            isPositive
+              ? "bg-green-500/20 text-green-400"
+              : "bg-red-500/20 text-red-400"
+          }`}
+        >
           {change}
         </div>
       </div>
@@ -106,9 +108,9 @@ export default function AdminDashboard() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency: 'CLP',
+    return new Intl.NumberFormat("es-CL", {
+      style: "currency",
+      currency: "CLP",
       minimumFractionDigits: 0,
     }).format(amount);
   };
@@ -123,18 +125,21 @@ export default function AdminDashboard() {
               FitAI Admin 💪
             </h1>
             <p className="text-gray-400 mt-1">
-              Power Mode Dashboard - {currentTime.toLocaleDateString('es-CL', { 
-                weekday: 'long',
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
+              Power Mode Dashboard -{" "}
+              {currentTime.toLocaleDateString("es-CL", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
               })}
             </p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="glass-effect px-4 py-2 rounded-lg border border-gray-700/50">
               <span className="text-sm text-gray-400">Sistema: </span>
-              <span className="text-green-400 font-medium">{mockStats.systemHealth}% ✨</span>
+              <span className="text-green-400 font-medium">
+                {mockStats.systemHealth}% ✨
+              </span>
             </div>
             <div className="w-10 h-10 rounded-full energy-gradient flex items-center justify-center energy-shadow">
               <span className="text-white font-bold text-sm">👤</span>
@@ -185,15 +190,21 @@ export default function AdminDashboard() {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-400">Usuarios Activos</span>
-              <span className="text-white font-medium">{mockStats.dailyActiveUsers}</span>
+              <span className="text-white font-medium">
+                {mockStats.dailyActiveUsers}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Entrenamientos</span>
-              <span className="text-white font-medium">{mockStats.totalWorkouts}</span>
+              <span className="text-white font-medium">
+                {mockStats.totalWorkouts}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Consultas IA</span>
-              <span className="text-white font-medium">{mockStats.aiRequestsToday}</span>
+              <span className="text-white font-medium">
+                {mockStats.aiRequestsToday}
+              </span>
             </div>
           </div>
         </div>
@@ -206,15 +217,23 @@ export default function AdminDashboard() {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-400">Free</span>
-              <span className="text-white font-medium">{mockStats.activeUsers - mockStats.premiumUsers - mockStats.proUsers}</span>
+              <span className="text-white font-medium">
+                {mockStats.activeUsers -
+                  mockStats.premiumUsers -
+                  mockStats.proUsers}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Premium</span>
-              <span className="text-orange-400 font-medium">{mockStats.premiumUsers}</span>
+              <span className="text-orange-400 font-medium">
+                {mockStats.premiumUsers}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Pro</span>
-              <span className="text-purple-400 font-medium">{mockStats.proUsers}</span>
+              <span className="text-purple-400 font-medium">
+                {mockStats.proUsers}
+              </span>
             </div>
           </div>
         </div>
@@ -229,19 +248,19 @@ export default function AdminDashboard() {
               title="Ver Usuarios"
               description="Gestionar cuentas"
               icon={<Users className="w-4 h-4 text-white" />}
-              onClick={() => alert('Navegando a usuarios...')}
+              onClick={() => alert("Navegando a usuarios...")}
             />
             <QuickAction
               title="Monitor IA"
               description="Costos y uso"
               icon={<Brain className="w-4 h-4 text-white" />}
-              onClick={() => alert('Abriendo monitor IA...')}
+              onClick={() => alert("Abriendo monitor IA...")}
             />
             <QuickAction
               title="Reportes"
               description="Analytics"
               icon={<BarChart3 className="w-4 h-4 text-white" />}
-              onClick={() => alert('Generando reportes...')}
+              onClick={() => alert("Generando reportes...")}
             />
           </div>
         </div>
@@ -257,7 +276,9 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-gray-400">Base de Datos: Saludable</span>
+              <span className="text-sm text-gray-400">
+                Base de Datos: Saludable
+              </span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
@@ -265,7 +286,7 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="text-xs text-gray-500">
-            Última actualización: {currentTime.toLocaleTimeString('es-CL')}
+            Última actualización: {currentTime.toLocaleTimeString("es-CL")}
           </div>
         </div>
       </div>

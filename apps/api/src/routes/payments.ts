@@ -1,8 +1,12 @@
-import { Hono } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { authMiddleware } from '../middleware/auth';
-import { MercadoPagoService, SubscriptionData, FITAI_PLANS } from '../lib/mercadopago';
-import { createDatabaseClient } from '../db/database';
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { createDatabaseClient } from "../db/database";
+import {
+  FITAI_PLANS,
+  MercadoPagoService,
+  type SubscriptionData,
+} from "../lib/mercadopago";
+import { clerkAuth } from "../middleware/clerk-auth";
 
 type Bindings = {
   CACHE: KVNamespace;
@@ -14,16 +18,16 @@ type Variables = {
   user?: {
     id: string;
     email: string;
-    plan: 'free' | 'premium' | 'pro';
+    plan: "free" | "premium" | "pro";
   };
 };
 
 const payments = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Obtener planes disponibles (sin auth)
-payments.get('/plans', async (c) => {
+payments.get("/plans", async (c) => {
   try {
-    const plans = Object.values(FITAI_PLANS).map(plan => ({
+    const plans = Object.values(FITAI_PLANS).map((plan) => ({
       id: plan.id,
       name: plan.name,
       price: {
@@ -31,7 +35,9 @@ payments.get('/plans', async (c) => {
         annual: MercadoPagoService.formatPrice(plan.price.annual),
         monthlyRaw: plan.price.monthly,
         annualRaw: plan.price.annual,
-        savings: MercadoPagoService.formatPrice(plan.price.monthly * 12 - plan.price.annual),
+        savings: MercadoPagoService.formatPrice(
+          plan.price.monthly * 12 - plan.price.annual
+        ),
       },
       currency: plan.currency,
       features: plan.features,
@@ -41,42 +47,45 @@ payments.get('/plans', async (c) => {
       success: true,
       data: plans,
     });
-
   } catch (error) {
-    console.error('Get plans error:', error);
-    throw new HTTPException(500, { message: 'Error al obtener planes' });
+    console.error("Get plans error:", error);
+    throw new HTTPException(500, { message: "Error al obtener planes" });
   }
 });
 
 // Crear suscripción (requiere auth)
-payments.post('/create-subscription', authMiddleware, async (c) => {
+payments.post("/create-subscription", clerkAuth(), async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const { planId, billingCycle, firstName, lastName } = await c.req.json();
 
     // Validar datos
     if (!planId || !billingCycle || !firstName || !lastName) {
-      throw new HTTPException(400, { 
-        message: 'Faltan datos requeridos: planId, billingCycle, firstName, lastName' 
+      throw new HTTPException(400, {
+        message:
+          "Faltan datos requeridos: planId, billingCycle, firstName, lastName",
       });
     }
 
     if (!FITAI_PLANS[planId]) {
-      throw new HTTPException(400, { message: 'Plan no válido' });
+      throw new HTTPException(400, { message: "Plan no válido" });
     }
 
-    if (!['monthly', 'annual'].includes(billingCycle)) {
-      throw new HTTPException(400, { message: 'Ciclo de facturación no válido' });
+    if (!["monthly", "annual"].includes(billingCycle)) {
+      throw new HTTPException(400, {
+        message: "Ciclo de facturación no válido",
+      });
     }
 
     // Verificar que el usuario no tenga ya una suscripción activa
-    if (user.plan !== 'free') {
-      throw new HTTPException(400, { 
-        message: 'Ya tienes una suscripción activa. Cancela primero tu plan actual.' 
+    if (user.plan !== "free") {
+      throw new HTTPException(400, {
+        message:
+          "Ya tienes una suscripción activa. Cancela primero tu plan actual.",
       });
     }
 
@@ -89,8 +98,11 @@ payments.post('/create-subscription', authMiddleware, async (c) => {
       lastName,
     };
 
-    const mercadoPagoService = new MercadoPagoService(c.env.MERCADOPAGO_ACCESS_TOKEN);
-    const preference = await mercadoPagoService.createSubscriptionPreference(subscriptionData);
+    const mercadoPagoService = new MercadoPagoService(
+      c.env.MERCADOPAGO_ACCESS_TOKEN
+    );
+    const preference =
+      await mercadoPagoService.createSubscriptionPreference(subscriptionData);
 
     if (!preference.success) {
       throw new HTTPException(400, { message: preference.error });
@@ -115,43 +127,48 @@ payments.post('/create-subscription', authMiddleware, async (c) => {
         preferenceId: preference.preferenceId,
         initPoint: preference.initPoint,
         planName: FITAI_PLANS[planId].name,
-        price: billingCycle === 'annual' 
-          ? FITAI_PLANS[planId].price.annual 
-          : FITAI_PLANS[planId].price.monthly,
+        price:
+          billingCycle === "annual"
+            ? FITAI_PLANS[planId].price.annual
+            : FITAI_PLANS[planId].price.monthly,
         billingCycle,
       },
-      message: 'Preferencia de pago creada exitosamente',
+      message: "Preferencia de pago creada exitosamente",
     });
-
   } catch (error) {
-    console.error('Create subscription error:', error);
+    console.error("Create subscription error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error al crear suscripción' });
+    throw new HTTPException(500, { message: "Error al crear suscripción" });
   }
 });
 
 // Webhook de Mercado Pago
-payments.post('/webhook', async (c) => {
+payments.post("/webhook", async (c) => {
   try {
     const webhookData = await c.req.json();
-    
-    console.log('MercadoPago Webhook received:', JSON.stringify(webhookData, null, 2));
 
-    const mercadoPagoService = new MercadoPagoService(c.env.MERCADOPAGO_ACCESS_TOKEN);
+    console.log(
+      "MercadoPago Webhook received:",
+      JSON.stringify(webhookData, null, 2)
+    );
+
+    const mercadoPagoService = new MercadoPagoService(
+      c.env.MERCADOPAGO_ACCESS_TOKEN
+    );
     const webhookResult = await mercadoPagoService.processWebhook(webhookData);
 
     if (!webhookResult.success) {
-      console.error('Webhook processing failed:', webhookResult.error);
-      return c.json({ status: 'error' }, 400);
+      console.error("Webhook processing failed:", webhookResult.error);
+      return c.json({ status: "error" }, 400);
     }
 
     if (webhookResult.action && webhookResult.userId && webhookResult.planId) {
       const sql = createDatabaseClient(c.env.DATABASE_URL);
 
       switch (webhookResult.action) {
-        case 'subscription_activated':
+        case "subscription_activated":
           // Actualizar plan del usuario
           await sql`
             UPDATE users 
@@ -172,10 +189,12 @@ payments.post('/webhook', async (c) => {
             )
           `;
 
-          console.log(`Subscription activated for user ${webhookResult.userId}, plan ${webhookResult.planId}`);
+          console.log(
+            `Subscription activated for user ${webhookResult.userId}, plan ${webhookResult.planId}`
+          );
           break;
 
-        case 'payment_failed':
+        case "payment_failed":
           // Actualizar intent como fallido
           await sql`
             UPDATE subscription_intents 
@@ -189,25 +208,26 @@ payments.post('/webhook', async (c) => {
       }
     }
 
-    return c.json({ status: 'ok' });
-
+    return c.json({ status: "ok" });
   } catch (error) {
-    console.error('Webhook error:', error);
-    return c.json({ status: 'error' }, 500);
+    console.error("Webhook error:", error);
+    return c.json({ status: "error" }, 500);
   }
 });
 
 // Verificar estado de pago
-payments.get('/payment-status/:paymentId', authMiddleware, async (c) => {
+payments.get("/payment-status/:paymentId", clerkAuth(), async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
-    const paymentId = c.req.param('paymentId');
-    
-    const mercadoPagoService = new MercadoPagoService(c.env.MERCADOPAGO_ACCESS_TOKEN);
+    const paymentId = c.req.param("paymentId");
+
+    const mercadoPagoService = new MercadoPagoService(
+      c.env.MERCADOPAGO_ACCESS_TOKEN
+    );
     const paymentStatus = await mercadoPagoService.getPaymentStatus(paymentId);
 
     if (!paymentStatus.success) {
@@ -218,26 +238,27 @@ payments.get('/payment-status/:paymentId', authMiddleware, async (c) => {
       success: true,
       data: paymentStatus.details,
     });
-
   } catch (error) {
-    console.error('Get payment status error:', error);
+    console.error("Get payment status error:", error);
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(500, { message: 'Error al verificar estado del pago' });
+    throw new HTTPException(500, {
+      message: "Error al verificar estado del pago",
+    });
   }
 });
 
 // Obtener suscripción actual del usuario
-payments.get('/subscription', authMiddleware, async (c) => {
+payments.get("/subscription", clerkAuth(), async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
-    
+
     const subscriptions = await sql`
       SELECT * 
       FROM payment_subscriptions
@@ -248,13 +269,13 @@ payments.get('/subscription', authMiddleware, async (c) => {
     `;
 
     const currentPlan = FITAI_PLANS[user.plan] || {
-      id: 'free',
-      name: 'Plan Gratuito',
+      id: "free",
+      name: "Plan Gratuito",
       features: [
-        '1 rutina IA por mes',
-        '5 consejos de entrenamiento',
-        '2 análisis de progreso',
-        'Funciones básicas',
+        "1 rutina IA por mes",
+        "5 consejos de entrenamiento",
+        "2 análisis de progreso",
+        "Funciones básicas",
       ],
     };
 
@@ -264,26 +285,27 @@ payments.get('/subscription', authMiddleware, async (c) => {
         currentPlan: user.plan,
         planDetails: currentPlan,
         subscription: subscriptions[0] || null,
-        canUpgrade: user.plan === 'free' || user.plan === 'premium',
+        canUpgrade: user.plan === "free" || user.plan === "premium",
       },
     });
-
   } catch (error) {
-    console.error('Get subscription error:', error);
-    throw new HTTPException(500, { message: 'Error al obtener suscripción' });
+    console.error("Get subscription error:", error);
+    throw new HTTPException(500, { message: "Error al obtener suscripción" });
   }
 });
 
 // Cancelar suscripción
-payments.post('/cancel-subscription', authMiddleware, async (c) => {
+payments.post("/cancel-subscription", clerkAuth(), async (c) => {
   try {
-    const user = c.get('user');
+    const user = c.get("user");
     if (!user) {
-      throw new HTTPException(401, { message: 'Usuario no autenticado' });
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
-    if (user.plan === 'free') {
-      throw new HTTPException(400, { message: 'No tienes una suscripción activa' });
+    if (user.plan === "free") {
+      throw new HTTPException(400, {
+        message: "No tienes una suscripción activa",
+      });
     }
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
@@ -304,12 +326,12 @@ payments.post('/cancel-subscription', authMiddleware, async (c) => {
 
     return c.json({
       success: true,
-      message: 'Suscripción cancelada exitosamente. Mantienes el acceso hasta el final del período actual.',
+      message:
+        "Suscripción cancelada exitosamente. Mantienes el acceso hasta el final del período actual.",
     });
-
   } catch (error) {
-    console.error('Cancel subscription error:', error);
-    throw new HTTPException(500, { message: 'Error al cancelar suscripción' });
+    console.error("Cancel subscription error:", error);
+    throw new HTTPException(500, { message: "Error al cancelar suscripción" });
   }
 });
 

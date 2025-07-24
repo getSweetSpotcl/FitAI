@@ -1,12 +1,12 @@
-import { OpenAI } from 'openai';
+import { OpenAI } from "openai";
 
 // Types for AI service
 export interface UserProfile {
   goals: string[];
-  experienceLevel: 'beginner' | 'intermediate' | 'advanced';
+  experienceLevel: "beginner" | "intermediate" | "advanced";
   availableDays: number;
   equipment: string[];
-  workoutLocation: 'home' | 'gym' | 'outdoor';
+  workoutLocation: "home" | "gym" | "outdoor";
   injuries?: string[];
   height?: number;
   weight?: number;
@@ -20,13 +20,13 @@ export interface RoutineRequest {
     focusMuscles?: string[];
     avoidExercises?: string[];
   };
-  plan: 'free' | 'premium' | 'pro';
+  plan: "free" | "premium" | "pro";
 }
 
 export interface GeneratedRoutine {
   name: string;
   description: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  difficulty: "beginner" | "intermediate" | "advanced";
   durationWeeks: number;
   daysPerWeek: number;
   estimatedDuration: number;
@@ -52,9 +52,9 @@ export interface GeneratedRoutine {
 export class AIService {
   private openai: OpenAI;
   private modelByPlan = {
-    free: 'gpt-3.5-turbo',
-    premium: 'gpt-4o-mini',
-    pro: 'gpt-4o'
+    free: "gpt-3.5-turbo",
+    premium: "gpt-4o-mini",
+    pro: "gpt-4o",
   };
 
   constructor(apiKey: string) {
@@ -73,36 +73,40 @@ export class AIService {
         model,
         messages: [
           {
-            role: 'system',
+            role: "system",
             content: `Eres un entrenador personal experto en crear rutinas de ejercicio personalizadas. 
             Debes crear rutinas seguras, efectivas y adaptadas al nivel del usuario.
             Responde siempre en español.
             Genera rutinas realistas que el usuario pueda seguir.
-            Incluye variedad de ejercicios y progresión gradual.`
+            Incluye variedad de ejercicios y progresión gradual.`,
           },
           {
-            role: 'user',
-            content: prompt
-          }
+            role: "user",
+            content: prompt,
+          },
         ],
         temperature: 0.7,
         max_tokens: 2000,
-        response_format: { type: 'json_object' }
+        response_format: { type: "json_object" },
       });
 
-      const routineData = JSON.parse(completion.choices[0].message.content || '{}');
+      const routineData = JSON.parse(
+        completion.choices[0].message.content || "{}"
+      );
       return this.validateAndFormatRoutine(routineData);
-
     } catch (error) {
-      console.error('AI routine generation error:', error);
-      throw new Error('Failed to generate routine');
+      console.error("AI routine generation error:", error);
+      throw new Error("Failed to generate routine");
     }
   }
 
   /**
    * Generate coaching advice based on workout performance
    */
-  async generateCoachingAdvice(workoutData: any, userPlan: 'free' | 'premium' | 'pro'): Promise<string> {
+  async generateCoachingAdvice(
+    workoutData: any,
+    userPlan: "free" | "premium" | "pro"
+  ): Promise<string> {
     const model = this.modelByPlan[userPlan];
 
     try {
@@ -110,32 +114,36 @@ export class AIService {
         model,
         messages: [
           {
-            role: 'system',
+            role: "system",
             content: `Eres un coach de fitness experto. Analiza el rendimiento del entrenamiento y 
             proporciona consejos personalizados, motivación y sugerencias de mejora.
-            Sé específico, positivo y constructivo. Responde en español.`
+            Sé específico, positivo y constructivo. Responde en español.`,
           },
           {
-            role: 'user',
-            content: `Analiza este entrenamiento y dame consejos: ${JSON.stringify(workoutData)}`
-          }
+            role: "user",
+            content: `Analiza este entrenamiento y dame consejos: ${JSON.stringify(workoutData)}`,
+          },
         ],
         temperature: 0.8,
-        max_tokens: 500
+        max_tokens: 500,
       });
 
-      return completion.choices[0].message.content || 'Sigue así, vas muy bien!';
-
+      return (
+        completion.choices[0].message.content || "Sigue así, vas muy bien!"
+      );
     } catch (error) {
-      console.error('AI coaching advice error:', error);
-      return 'Excelente trabajo! Continúa con tu progreso.';
+      console.error("AI coaching advice error:", error);
+      return "Excelente trabajo! Continúa con tu progreso.";
     }
   }
 
   /**
    * Analyze form from video (premium feature)
    */
-  async analyzeExerciseForm(videoUrl: string, exerciseName: string): Promise<{
+  async analyzeExerciseForm(
+    _videoUrl: string,
+    _exerciseName: string
+  ): Promise<{
     feedback: string;
     corrections: string[];
     score: number;
@@ -143,9 +151,9 @@ export class AIService {
     // This is a placeholder for future video analysis
     // In production, this would integrate with a computer vision API
     return {
-      feedback: 'Análisis de forma no disponible en esta versión',
+      feedback: "Análisis de forma no disponible en esta versión",
       corrections: [],
-      score: 0
+      score: 0,
     };
   }
 
@@ -154,23 +162,23 @@ export class AIService {
    */
   private buildRoutinePrompt(request: RoutineRequest): string {
     const { userProfile, preferences } = request;
-    
+
     return `Crea una rutina de entrenamiento personalizada con estas características:
 
 PERFIL DEL USUARIO:
-- Objetivos: ${userProfile.goals.join(', ')}
+- Objetivos: ${userProfile.goals.join(", ")}
 - Nivel: ${userProfile.experienceLevel}
 - Días disponibles: ${userProfile.availableDays} por semana
-- Equipamiento: ${userProfile.equipment.join(', ')}
+- Equipamiento: ${userProfile.equipment.join(", ")}
 - Lugar: ${userProfile.workoutLocation}
-${userProfile.injuries ? `- Lesiones/limitaciones: ${userProfile.injuries.join(', ')}` : ''}
-${userProfile.age ? `- Edad: ${userProfile.age} años` : ''}
-${userProfile.weight && userProfile.height ? `- Peso: ${userProfile.weight}kg, Altura: ${userProfile.height}cm` : ''}
+${userProfile.injuries ? `- Lesiones/limitaciones: ${userProfile.injuries.join(", ")}` : ""}
+${userProfile.age ? `- Edad: ${userProfile.age} años` : ""}
+${userProfile.weight && userProfile.height ? `- Peso: ${userProfile.weight}kg, Altura: ${userProfile.height}cm` : ""}
 
 PREFERENCIAS:
-${preferences?.duration ? `- Duración por sesión: ${preferences.duration} minutos` : ''}
-${preferences?.focusMuscles ? `- Enfoque en: ${preferences.focusMuscles.join(', ')}` : ''}
-${preferences?.avoidExercises ? `- Evitar: ${preferences.avoidExercises.join(', ')}` : ''}
+${preferences?.duration ? `- Duración por sesión: ${preferences.duration} minutos` : ""}
+${preferences?.focusMuscles ? `- Enfoque en: ${preferences.focusMuscles.join(", ")}` : ""}
+${preferences?.avoidExercises ? `- Evitar: ${preferences.avoidExercises.join(", ")}` : ""}
 
 Genera una rutina completa en formato JSON con esta estructura:
 {
@@ -209,9 +217,9 @@ Genera una rutina completa en formato JSON con esta estructura:
   private validateAndFormatRoutine(routineData: any): GeneratedRoutine {
     // Basic validation and formatting
     return {
-      name: routineData.name || 'Rutina Personalizada',
-      description: routineData.description || '',
-      difficulty: routineData.difficulty || 'intermediate',
+      name: routineData.name || "Rutina Personalizada",
+      description: routineData.description || "",
+      difficulty: routineData.difficulty || "intermediate",
       durationWeeks: Math.min(12, Math.max(4, routineData.durationWeeks || 8)),
       daysPerWeek: Math.min(7, Math.max(1, routineData.daysPerWeek || 3)),
       estimatedDuration: routineData.estimatedDuration || 45,
@@ -220,7 +228,7 @@ Genera una rutina completa en formato JSON con esta estructura:
       days: (routineData.days || []).map((day: any) => ({
         dayOfWeek: day.dayOfWeek || 1,
         name: day.name || `Día ${day.dayOfWeek}`,
-        description: day.description || '',
+        description: day.description || "",
         exercises: (day.exercises || []).map((ex: any) => ({
           name: ex.name,
           targetSets: ex.targetSets || 3,
@@ -228,27 +236,31 @@ Genera una rutina completa en formato JSON con esta estructura:
           targetRepsMax: ex.targetRepsMax || 12,
           restTimeSeconds: ex.restTimeSeconds || 90,
           rpeTarget: ex.rpeTarget,
-          notes: ex.notes
-        }))
-      }))
+          notes: ex.notes,
+        })),
+      })),
     };
   }
 
   /**
    * Calculate AI usage cost for tracking
    */
-  calculateUsageCost(model: string, promptTokens: number, completionTokens: number): number {
+  calculateUsageCost(
+    model: string,
+    promptTokens: number,
+    completionTokens: number
+  ): number {
     // Approximate costs per 1K tokens (in USD cents)
     const costs: Record<string, { prompt: number; completion: number }> = {
-      'gpt-3.5-turbo': { prompt: 0.05, completion: 0.15 },
-      'gpt-4o-mini': { prompt: 0.015, completion: 0.06 },
-      'gpt-4o': { prompt: 0.5, completion: 1.5 }
+      "gpt-3.5-turbo": { prompt: 0.05, completion: 0.15 },
+      "gpt-4o-mini": { prompt: 0.015, completion: 0.06 },
+      "gpt-4o": { prompt: 0.5, completion: 1.5 },
     };
 
-    const modelCost = costs[model] || costs['gpt-3.5-turbo'];
+    const modelCost = costs[model] || costs["gpt-3.5-turbo"];
     const promptCost = (promptTokens / 1000) * modelCost.prompt;
     const completionCost = (completionTokens / 1000) * modelCost.completion;
-    
+
     return promptCost + completionCost;
   }
 }

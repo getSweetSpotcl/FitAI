@@ -1,28 +1,25 @@
-import { DatabaseClient } from '../db/database';
+import type { DatabaseClient } from "../db/database";
 import type {
-  UserSocialProfile,
-  SocialConnection,
-  SharedRoutine,
-  WorkoutPost,
   Challenge,
   ChallengeParticipant,
+  ChallengesQuery,
   CommunityGroup,
-  GroupMembership,
-  GroupPost,
-  SocialNotification,
-  Leaderboard,
-  UserBadge,
-  UpdateSocialProfileRequest,
-  CreateSharedRoutineRequest,
-  CreateWorkoutPostRequest,
   CreateChallengeRequest,
   CreateCommunityGroupRequest,
   CreateGroupPostRequest,
-  SocialFeedQuery,
+  CreateSharedRoutineRequest,
+  CreateWorkoutPostRequest,
+  GroupMembership,
+  GroupPost,
+  SharedRoutine,
   SharedRoutinesQuery,
-  ChallengesQuery,
-  LeaderboardQuery
-} from '../types/social';
+  SocialConnection,
+  SocialFeedQuery,
+  SocialNotification,
+  UpdateSocialProfileRequest,
+  UserSocialProfile,
+  WorkoutPost,
+} from "../types/social";
 
 export class SocialService {
   constructor(private sql: DatabaseClient) {}
@@ -32,7 +29,9 @@ export class SocialService {
   /**
    * Get or create user social profile
    */
-  async getUserSocialProfile(userId: string): Promise<UserSocialProfile | null> {
+  async getUserSocialProfile(
+    userId: string
+  ): Promise<UserSocialProfile | null> {
     try {
       const result = await this.sql`
         SELECT * FROM user_social_profiles
@@ -46,28 +45,37 @@ export class SocialService {
 
       return this.mapSocialProfile((result as any[])[0]);
     } catch (error) {
-      console.error('Get social profile error:', error);
-      throw new Error('Failed to get social profile');
+      console.error("Get social profile error:", error);
+      throw new Error("Failed to get social profile");
     }
   }
 
   /**
    * Update user social profile
    */
-  async updateSocialProfile(userId: string, updates: UpdateSocialProfileRequest): Promise<UserSocialProfile> {
+  async updateSocialProfile(
+    userId: string,
+    updates: UpdateSocialProfileRequest
+  ): Promise<UserSocialProfile> {
     try {
       // Build individual update clauses with direct parameterization
       const updateParts: string[] = [];
-      let valueIndex = 0;
-      
+      const _valueIndex = 0;
+
       if (updates.displayName) {
-        updateParts.push(`display_name = '${updates.displayName.replace(/'/g, "''")}'`);
+        updateParts.push(
+          `display_name = '${updates.displayName.replace(/'/g, "''")}'`
+        );
       }
       if (updates.bio !== undefined) {
-        updateParts.push(`bio = ${updates.bio ? `'${updates.bio.replace(/'/g, "''")}'` : 'NULL'}`);
+        updateParts.push(
+          `bio = ${updates.bio ? `'${updates.bio.replace(/'/g, "''")}'` : "NULL"}`
+        );
       }
       if (updates.avatarUrl !== undefined) {
-        updateParts.push(`avatar_url = ${updates.avatarUrl ? `'${updates.avatarUrl.replace(/'/g, "''")}'` : 'NULL'}`);
+        updateParts.push(
+          `avatar_url = ${updates.avatarUrl ? `'${updates.avatarUrl.replace(/'/g, "''")}'` : "NULL"}`
+        );
       }
       if (updates.fitnessLevel) {
         updateParts.push(`fitness_level = '${updates.fitnessLevel}'`);
@@ -76,9 +84,11 @@ export class SocialService {
         updateParts.push(`years_training = ${updates.yearsTraining}`);
       }
       if (updates.preferredWorkoutTypes) {
-        updateParts.push(`preferred_workout_types = '${JSON.stringify(updates.preferredWorkoutTypes).replace(/'/g, "''")}'`);
+        updateParts.push(
+          `preferred_workout_types = '${JSON.stringify(updates.preferredWorkoutTypes).replace(/'/g, "''")}'`
+        );
       }
-      
+
       // Handle privacy settings
       if (updates.privacy) {
         const privacy = updates.privacy;
@@ -101,24 +111,24 @@ export class SocialService {
           updateParts.push(`allow_challenges = ${privacy.allowChallenges}`);
         }
       }
-      
+
       if (updateParts.length === 0) {
-        throw new Error('No updates provided');
+        throw new Error("No updates provided");
       }
-      
-      updateParts.push('updated_at = NOW()');
-      
+
+      updateParts.push("updated_at = NOW()");
+
       const result = await this.sql.unsafe(`
         UPDATE user_social_profiles 
-        SET ${updateParts.join(', ')}
+        SET ${updateParts.join(", ")}
         WHERE user_id = '${userId}'
         RETURNING *
       `);
 
-      return this.mapSocialProfile(((result as unknown) as any[])[0]);
+      return this.mapSocialProfile((result as unknown as any[])[0]);
     } catch (error) {
-      console.error('Update social profile error:', error);
-      throw new Error('Failed to update social profile');
+      console.error("Update social profile error:", error);
+      throw new Error("Failed to update social profile");
     }
   }
 
@@ -127,10 +137,13 @@ export class SocialService {
   /**
    * Follow a user
    */
-  async followUser(followerId: string, followingId: string): Promise<SocialConnection> {
+  async followUser(
+    followerId: string,
+    followingId: string
+  ): Promise<SocialConnection> {
     try {
       if (followerId === followingId) {
-        throw new Error('Cannot follow yourself');
+        throw new Error("Cannot follow yourself");
       }
 
       // Check if connection already exists
@@ -140,13 +153,13 @@ export class SocialService {
       `;
 
       if ((existing as any[]).length > 0) {
-        throw new Error('Already following this user');
+        throw new Error("Already following this user");
       }
 
       // Check if target user allows followers
       const targetProfile = await this.getUserSocialProfile(followingId);
       if (!targetProfile?.allowFollowers) {
-        throw new Error('User does not allow followers');
+        throw new Error("User does not allow followers");
       }
 
       // Create connection
@@ -159,24 +172,24 @@ export class SocialService {
       // Update follower counts
       await Promise.all([
         this.updateFollowCounts(followerId),
-        this.updateFollowCounts(followingId)
+        this.updateFollowCounts(followingId),
       ]);
 
       // Create notification
       await this.createNotification({
         userId: followingId,
         senderId: followerId,
-        notificationType: 'new_follower',
-        title: 'Nuevo seguidor',
-        message: 'Alguien comenzó a seguirte',
-        relatedEntityType: 'user',
-        relatedEntityId: followerId
+        notificationType: "new_follower",
+        title: "Nuevo seguidor",
+        message: "Alguien comenzó a seguirte",
+        relatedEntityType: "user",
+        relatedEntityId: followerId,
       });
 
       return this.mapSocialConnection((result as any[])[0]);
     } catch (error) {
-      console.error('Follow user error:', error);
-      throw new Error('Failed to follow user');
+      console.error("Follow user error:", error);
+      throw new Error("Failed to follow user");
     }
   }
 
@@ -193,18 +206,22 @@ export class SocialService {
       // Update follower counts
       await Promise.all([
         this.updateFollowCounts(followerId),
-        this.updateFollowCounts(followingId)
+        this.updateFollowCounts(followingId),
       ]);
     } catch (error) {
-      console.error('Unfollow user error:', error);
-      throw new Error('Failed to unfollow user');
+      console.error("Unfollow user error:", error);
+      throw new Error("Failed to unfollow user");
     }
   }
 
   /**
    * Get user's followers
    */
-  async getUserFollowers(userId: string, page: number = 1, limit: number = 20): Promise<{ followers: SocialConnection[], total: number }> {
+  async getUserFollowers(
+    userId: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{ followers: SocialConnection[]; total: number }> {
     try {
       const offset = (page - 1) * limit;
 
@@ -221,23 +238,27 @@ export class SocialService {
           SELECT COUNT(*) as total
           FROM social_connections
           WHERE following_id = ${userId} AND status = 'accepted'
-        `
+        `,
       ]);
 
       return {
         followers: (followers as any[]).map(this.mapSocialConnectionWithUser),
-        total: parseInt((countResult as any[])[0].total)
+        total: parseInt((countResult as any[])[0].total),
       };
     } catch (error) {
-      console.error('Get followers error:', error);
-      throw new Error('Failed to get followers');
+      console.error("Get followers error:", error);
+      throw new Error("Failed to get followers");
     }
   }
 
   /**
    * Get users that a user is following
    */
-  async getUserFollowing(userId: string, page: number = 1, limit: number = 20): Promise<{ following: SocialConnection[], total: number }> {
+  async getUserFollowing(
+    userId: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{ following: SocialConnection[]; total: number }> {
     try {
       const offset = (page - 1) * limit;
 
@@ -254,16 +275,16 @@ export class SocialService {
           SELECT COUNT(*) as total
           FROM social_connections
           WHERE follower_id = ${userId} AND status = 'accepted'
-        `
+        `,
       ]);
 
       return {
         following: (following as any[]).map(this.mapSocialConnectionWithUser),
-        total: parseInt((countResult as any[])[0].total)
+        total: parseInt((countResult as any[])[0].total),
       };
     } catch (error) {
-      console.error('Get following error:', error);
-      throw new Error('Failed to get following');
+      console.error("Get following error:", error);
+      throw new Error("Failed to get following");
     }
   }
 
@@ -272,7 +293,10 @@ export class SocialService {
   /**
    * Share a routine
    */
-  async shareRoutine(userId: string, routine: CreateSharedRoutineRequest): Promise<SharedRoutine> {
+  async shareRoutine(
+    userId: string,
+    routine: CreateSharedRoutineRequest
+  ): Promise<SharedRoutine> {
     try {
       const result = await this.sql`
         INSERT INTO shared_routines (
@@ -297,52 +321,63 @@ export class SocialService {
 
       return this.mapSharedRoutine((result as any[])[0]);
     } catch (error) {
-      console.error('Share routine error:', error);
-      throw new Error('Failed to share routine');
+      console.error("Share routine error:", error);
+      throw new Error("Failed to share routine");
     }
   }
 
   /**
    * Get shared routines feed
    */
-  async getSharedRoutines(query: SharedRoutinesQuery): Promise<{ routines: SharedRoutine[], total: number }> {
+  async getSharedRoutines(
+    query: SharedRoutinesQuery
+  ): Promise<{ routines: SharedRoutine[]; total: number }> {
     try {
-      const { page = 1, limit = 10, category, difficulty, tags, sortBy = 'recent', userId } = query;
+      const {
+        page = 1,
+        limit = 10,
+        category,
+        difficulty,
+        tags,
+        sortBy = "recent",
+        userId,
+      } = query;
       const offset = (page - 1) * limit;
 
-      let whereClause = 'sr.is_public = TRUE';
+      let _whereClause = "sr.is_public = TRUE";
       const queryParams: any[] = [];
 
       if (category) {
-        whereClause += ` AND sr.category = $${queryParams.length + 1}`;
+        _whereClause += ` AND sr.category = $${queryParams.length + 1}`;
         queryParams.push(category);
       }
 
       if (difficulty) {
-        whereClause += ` AND sr.difficulty = $${queryParams.length + 1}`;
+        _whereClause += ` AND sr.difficulty = $${queryParams.length + 1}`;
         queryParams.push(difficulty);
       }
 
       if (userId) {
-        whereClause += ` AND sr.user_id = $${queryParams.length + 1}`;
+        _whereClause += ` AND sr.user_id = $${queryParams.length + 1}`;
         queryParams.push(userId);
       }
 
       if (tags && tags.length > 0) {
-        whereClause += ` AND sr.tags ?| array[$${queryParams.length + 1}]`;
+        _whereClause += ` AND sr.tags ?| array[$${queryParams.length + 1}]`;
         queryParams.push(tags);
       }
 
-      let orderClause = 'ORDER BY sr.created_at DESC';
-      if (sortBy === 'popular') {
-        orderClause = 'ORDER BY sr.likes_count DESC, sr.created_at DESC';
-      } else if (sortBy === 'rating') {
-        orderClause = 'ORDER BY sr.rating_average DESC, sr.rating_count DESC, sr.created_at DESC';
+      let orderClause = "ORDER BY sr.created_at DESC";
+      if (sortBy === "popular") {
+        orderClause = "ORDER BY sr.likes_count DESC, sr.created_at DESC";
+      } else if (sortBy === "rating") {
+        orderClause =
+          "ORDER BY sr.rating_average DESC, sr.rating_count DESC, sr.created_at DESC";
       }
 
       // Simplify by building query directly with safe interpolation
-      let finalWhereClause = 'sr.is_public = TRUE';
-      
+      let finalWhereClause = "sr.is_public = TRUE";
+
       if (category) {
         finalWhereClause += ` AND sr.category = '${category.replace(/'/g, "''")}'`;
       }
@@ -353,10 +388,12 @@ export class SocialService {
         finalWhereClause += ` AND sr.user_id = '${userId.replace(/'/g, "''")}'`;
       }
       if (tags && tags.length > 0) {
-        const tagsList = tags.map(tag => `'${tag.replace(/'/g, "''")}'`).join(',');
+        const tagsList = tags
+          .map((tag) => `'${tag.replace(/'/g, "''")}'`)
+          .join(",");
         finalWhereClause += ` AND sr.tags ?| array[${tagsList}]`;
       }
-      
+
       const [routines, countResult] = await Promise.all([
         this.sql.unsafe(`
           SELECT sr.*, usp.display_name as creator_name, usp.avatar_url as creator_avatar
@@ -370,23 +407,28 @@ export class SocialService {
           SELECT COUNT(*) as total
           FROM shared_routines sr
           WHERE ${finalWhereClause}
-        `)
+        `),
       ]);
 
       return {
-        routines: ((routines as unknown) as any[]).map(this.mapSharedRoutineWithCreator),
-        total: parseInt(((countResult as unknown) as any[])[0].total)
+        routines: (routines as unknown as any[]).map(
+          this.mapSharedRoutineWithCreator
+        ),
+        total: parseInt((countResult as unknown as any[])[0].total),
       };
     } catch (error) {
-      console.error('Get shared routines error:', error);
-      throw new Error('Failed to get shared routines');
+      console.error("Get shared routines error:", error);
+      throw new Error("Failed to get shared routines");
     }
   }
 
   /**
    * Like/unlike a routine
    */
-  async toggleRoutineLike(userId: string, routineId: string): Promise<{ liked: boolean, likesCount: number }> {
+  async toggleRoutineLike(
+    userId: string,
+    routineId: string
+  ): Promise<{ liked: boolean; likesCount: number }> {
     try {
       // Check if already liked
       const existing = await this.sql`
@@ -402,7 +444,7 @@ export class SocialService {
           DELETE FROM routine_interactions
           WHERE user_id = ${userId} AND routine_id = ${routineId} AND interaction_type = 'like'
         `;
-        
+
         await this.sql`
           UPDATE shared_routines 
           SET likes_count = likes_count - 1
@@ -414,29 +456,32 @@ export class SocialService {
           INSERT INTO routine_interactions (user_id, routine_id, interaction_type)
           VALUES (${userId}, ${routineId}, 'like')
         `;
-        
+
         await this.sql`
           UPDATE shared_routines 
           SET likes_count = likes_count + 1
           WHERE id = ${routineId}
         `;
-        
+
         liked = true;
 
         // Create notification for routine creator
         const routine = await this.sql`
           SELECT user_id FROM shared_routines WHERE id = ${routineId}
         `;
-        
-        if ((routine as any[]).length > 0 && (routine as any[])[0].user_id !== userId) {
+
+        if (
+          (routine as any[]).length > 0 &&
+          (routine as any[])[0].user_id !== userId
+        ) {
           await this.createNotification({
             userId: (routine as any[])[0].user_id,
             senderId: userId,
-            notificationType: 'routine_liked',
-            title: 'Rutina marcada como favorita',
-            message: 'A alguien le gustó tu rutina compartida',
-            relatedEntityType: 'routine',
-            relatedEntityId: routineId
+            notificationType: "routine_liked",
+            title: "Rutina marcada como favorita",
+            message: "A alguien le gustó tu rutina compartida",
+            relatedEntityType: "routine",
+            relatedEntityId: routineId,
           });
         }
       }
@@ -448,11 +493,11 @@ export class SocialService {
 
       return {
         liked,
-        likesCount: (updatedRoutine as any[])[0].likes_count
+        likesCount: (updatedRoutine as any[])[0].likes_count,
       };
     } catch (error) {
-      console.error('Toggle routine like error:', error);
-      throw new Error('Failed to toggle routine like');
+      console.error("Toggle routine like error:", error);
+      throw new Error("Failed to toggle routine like");
     }
   }
 
@@ -461,7 +506,10 @@ export class SocialService {
   /**
    * Create a workout post
    */
-  async createWorkoutPost(userId: string, post: CreateWorkoutPostRequest): Promise<WorkoutPost> {
+  async createWorkoutPost(
+    userId: string,
+    post: CreateWorkoutPostRequest
+  ): Promise<WorkoutPost> {
     try {
       const result = await this.sql`
         INSERT INTO workout_posts (
@@ -477,25 +525,28 @@ export class SocialService {
 
       return this.mapWorkoutPost((result as any[])[0]);
     } catch (error) {
-      console.error('Create workout post error:', error);
-      throw new Error('Failed to create workout post');
+      console.error("Create workout post error:", error);
+      throw new Error("Failed to create workout post");
     }
   }
 
   /**
    * Get social feed for user
    */
-  async getSocialFeed(userId: string, query: SocialFeedQuery): Promise<{ posts: WorkoutPost[], total: number }> {
+  async getSocialFeed(
+    userId: string,
+    query: SocialFeedQuery
+  ): Promise<{ posts: WorkoutPost[]; total: number }> {
     try {
-      const { page = 1, limit = 10, feedType = 'all', contentTypes } = query;
+      const { page = 1, limit = 10, feedType = "all", contentTypes } = query;
       const offset = (page - 1) * limit;
 
       // Build where clause with direct string interpolation
 
       // Rebuild where clause with direct string interpolation
-      let finalWhereClause = 'wp.visibility = \'public\'';
-      
-      if (feedType === 'following') {
+      let finalWhereClause = "wp.visibility = 'public'";
+
+      if (feedType === "following") {
         finalWhereClause = `(wp.visibility = 'public' OR 
           (wp.visibility = 'followers' AND wp.user_id IN (
             SELECT following_id FROM social_connections 
@@ -504,10 +555,12 @@ export class SocialService {
       }
 
       if (contentTypes && contentTypes.length > 0) {
-        const typesList = contentTypes.map(type => `'${type.replace(/'/g, "''")}'`).join(',');
+        const typesList = contentTypes
+          .map((type) => `'${type.replace(/'/g, "''")}'`)
+          .join(",");
         finalWhereClause += ` AND wp.post_type IN (${typesList})`;
       }
-      
+
       const [posts, countResult] = await Promise.all([
         this.sql.unsafe(`
           SELECT wp.*, usp.display_name as author_name, usp.avatar_url as author_avatar
@@ -521,16 +574,16 @@ export class SocialService {
           SELECT COUNT(*) as total
           FROM workout_posts wp
           WHERE ${finalWhereClause}
-        `)
+        `),
       ]);
 
       return {
-        posts: ((posts as unknown) as any[]).map(this.mapWorkoutPostWithAuthor),
-        total: parseInt(((countResult as unknown) as any[])[0].total)
+        posts: (posts as unknown as any[]).map(this.mapWorkoutPostWithAuthor),
+        total: parseInt((countResult as unknown as any[])[0].total),
       };
     } catch (error) {
-      console.error('Get social feed error:', error);
-      throw new Error('Failed to get social feed');
+      console.error("Get social feed error:", error);
+      throw new Error("Failed to get social feed");
     }
   }
 
@@ -539,7 +592,10 @@ export class SocialService {
   /**
    * Create a challenge
    */
-  async createChallenge(creatorId: string | null, challenge: CreateChallengeRequest): Promise<Challenge> {
+  async createChallenge(
+    creatorId: string | null,
+    challenge: CreateChallengeRequest
+  ): Promise<Challenge> {
     try {
       const result = await this.sql`
         INSERT INTO challenges (
@@ -560,15 +616,18 @@ export class SocialService {
 
       return this.mapChallenge((result as any[])[0]);
     } catch (error) {
-      console.error('Create challenge error:', error);
-      throw new Error('Failed to create challenge');
+      console.error("Create challenge error:", error);
+      throw new Error("Failed to create challenge");
     }
   }
 
   /**
    * Join a challenge
    */
-  async joinChallenge(userId: string, challengeId: string): Promise<ChallengeParticipant> {
+  async joinChallenge(
+    userId: string,
+    challengeId: string
+  ): Promise<ChallengeParticipant> {
     try {
       // Check if challenge exists and is active
       const challenge = await this.sql`
@@ -578,7 +637,7 @@ export class SocialService {
       `;
 
       if ((challenge as any[]).length === 0) {
-        throw new Error('Challenge not found or registration closed');
+        throw new Error("Challenge not found or registration closed");
       }
 
       // Check if already participating
@@ -588,7 +647,7 @@ export class SocialService {
       `;
 
       if ((existing as any[]).length > 0) {
-        throw new Error('Already participating in this challenge');
+        throw new Error("Already participating in this challenge");
       }
 
       // Check participant limit
@@ -598,9 +657,12 @@ export class SocialService {
           SELECT COUNT(*) as count FROM challenge_participants
           WHERE challenge_id = ${challengeId} AND status = 'active'
         `;
-        
-        if (parseInt((currentCount as any[])[0].count) >= challengeData.max_participants) {
-          throw new Error('Challenge is full');
+
+        if (
+          parseInt((currentCount as any[])[0].count) >=
+          challengeData.max_participants
+        ) {
+          throw new Error("Challenge is full");
         }
       }
 
@@ -620,24 +682,33 @@ export class SocialService {
 
       return this.mapChallengeParticipant((result as any[])[0]);
     } catch (error) {
-      console.error('Join challenge error:', error);
-      throw new Error('Failed to join challenge');
+      console.error("Join challenge error:", error);
+      throw new Error("Failed to join challenge");
     }
   }
 
   /**
    * Get active challenges
    */
-  async getChallenges(query: ChallengesQuery): Promise<{ challenges: Challenge[], total: number }> {
+  async getChallenges(
+    query: ChallengesQuery
+  ): Promise<{ challenges: Challenge[]; total: number }> {
     try {
-      const { page = 1, limit = 10, status, category, challengeType, participating } = query;
+      const {
+        page = 1,
+        limit = 10,
+        status,
+        category,
+        challengeType,
+        participating,
+      } = query;
       const offset = (page - 1) * limit;
 
       // Build where clause with direct string interpolation
 
       // Rebuild where clause with direct string interpolation
-      let finalWhereClause = 'c.is_public = TRUE';
-      
+      let finalWhereClause = "c.is_public = TRUE";
+
       if (status) {
         finalWhereClause += ` AND c.status = '${status.replace(/'/g, "''")}'`;
       }
@@ -647,7 +718,7 @@ export class SocialService {
       if (challengeType) {
         finalWhereClause += ` AND c.challenge_type = '${challengeType.replace(/'/g, "''")}'`;
       }
-      
+
       const [challenges, countResult] = await Promise.all([
         this.sql.unsafe(`
           SELECT c.*, usp.display_name as creator_name, usp.avatar_url as creator_avatar
@@ -661,16 +732,18 @@ export class SocialService {
           SELECT COUNT(*) as total
           FROM challenges c
           WHERE ${finalWhereClause}
-        `)
+        `),
       ]);
 
       return {
-        challenges: ((challenges as unknown) as any[]).map(this.mapChallengeWithCreator),
-        total: parseInt(((countResult as unknown) as any[])[0].total)
+        challenges: (challenges as unknown as any[]).map(
+          this.mapChallengeWithCreator
+        ),
+        total: parseInt((countResult as unknown as any[])[0].total),
       };
     } catch (error) {
-      console.error('Get challenges error:', error);
-      throw new Error('Failed to get challenges');
+      console.error("Get challenges error:", error);
+      throw new Error("Failed to get challenges");
     }
   }
 
@@ -679,7 +752,10 @@ export class SocialService {
   /**
    * Create a community group
    */
-  async createCommunityGroup(creatorId: string, groupData: CreateCommunityGroupRequest): Promise<CommunityGroup> {
+  async createCommunityGroup(
+    creatorId: string,
+    groupData: CreateCommunityGroupRequest
+  ): Promise<CommunityGroup> {
     try {
       const result = await this.sql`
         INSERT INTO community_groups (
@@ -704,29 +780,34 @@ export class SocialService {
 
       return this.mapCommunityGroup(group);
     } catch (error) {
-      console.error('Create community group error:', error);
-      throw new Error('Failed to create community group');
+      console.error("Create community group error:", error);
+      throw new Error("Failed to create community group");
     }
   }
 
   /**
    * Get community groups
    */
-  async getCommunityGroups(page: number = 1, limit: number = 10, category?: string, groupType?: string): Promise<{ groups: CommunityGroup[], total: number }> {
+  async getCommunityGroups(
+    page: number = 1,
+    limit: number = 10,
+    category?: string,
+    groupType?: string
+  ): Promise<{ groups: CommunityGroup[]; total: number }> {
     try {
       const offset = (page - 1) * limit;
       // Build where clause with direct string interpolation
 
       // Rebuild where clause with direct string interpolation
-      let finalWhereClause = '1=1';
-      
+      let finalWhereClause = "1=1";
+
       if (category) {
         finalWhereClause += ` AND cg.category = '${category.replace(/'/g, "''")}'`;
       }
       if (groupType) {
         finalWhereClause += ` AND cg.group_type = '${groupType.replace(/'/g, "''")}'`;
       }
-      
+
       const [groups, countResult] = await Promise.all([
         this.sql.unsafe(`
           SELECT cg.*, usp.display_name as creator_name, usp.avatar_url as creator_avatar
@@ -740,23 +821,28 @@ export class SocialService {
           SELECT COUNT(*) as total
           FROM community_groups cg
           WHERE ${finalWhereClause}
-        `)
+        `),
       ]);
 
       return {
-        groups: ((groups as unknown) as any[]).map(this.mapCommunityGroupWithCreator),
-        total: parseInt(((countResult as unknown) as any[])[0].total)
+        groups: (groups as unknown as any[]).map(
+          this.mapCommunityGroupWithCreator
+        ),
+        total: parseInt((countResult as unknown as any[])[0].total),
       };
     } catch (error) {
-      console.error('Get community groups error:', error);
-      throw new Error('Failed to get community groups');
+      console.error("Get community groups error:", error);
+      throw new Error("Failed to get community groups");
     }
   }
 
   /**
    * Join a community group
    */
-  async joinCommunityGroup(userId: string, groupId: string): Promise<GroupMembership> {
+  async joinCommunityGroup(
+    userId: string,
+    groupId: string
+  ): Promise<GroupMembership> {
     try {
       // Check if group exists
       const group = await this.sql`
@@ -764,7 +850,7 @@ export class SocialService {
       `;
 
       if ((group as any[]).length === 0) {
-        throw new Error('Group not found');
+        throw new Error("Group not found");
       }
 
       const groupData = (group as any[])[0];
@@ -776,11 +862,11 @@ export class SocialService {
       `;
 
       if ((existing as any[]).length > 0) {
-        throw new Error('Already a member of this group');
+        throw new Error("Already a member of this group");
       }
 
       // Check if group is private and requires approval
-      const status = groupData.requires_approval ? 'pending' : 'active';
+      const status = groupData.requires_approval ? "pending" : "active";
 
       const result = await this.sql`
         INSERT INTO group_memberships (group_id, user_id, status)
@@ -789,7 +875,7 @@ export class SocialService {
       `;
 
       // Update member count if approved immediately
-      if (status === 'active') {
+      if (status === "active") {
         await this.sql`
           UPDATE community_groups 
           SET members_count = members_count + 1
@@ -798,29 +884,33 @@ export class SocialService {
       }
 
       // Create notification for group creator if pending approval
-      if (status === 'pending') {
+      if (status === "pending") {
         await this.createNotification({
           userId: groupData.creator_id,
           senderId: userId,
-          notificationType: 'group_join_request',
-          title: 'Solicitud de unión al grupo',
-          message: 'Alguien quiere unirse a tu grupo',
-          relatedEntityType: 'group',
-          relatedEntityId: groupId
+          notificationType: "group_join_request",
+          title: "Solicitud de unión al grupo",
+          message: "Alguien quiere unirse a tu grupo",
+          relatedEntityType: "group",
+          relatedEntityId: groupId,
         });
       }
 
       return this.mapGroupMembership((result as any[])[0]);
     } catch (error) {
-      console.error('Join community group error:', error);
-      throw new Error('Failed to join community group');
+      console.error("Join community group error:", error);
+      throw new Error("Failed to join community group");
     }
   }
 
   /**
    * Create a group post
    */
-  async createGroupPost(userId: string, groupId: string, postData: CreateGroupPostRequest): Promise<GroupPost> {
+  async createGroupPost(
+    userId: string,
+    groupId: string,
+    postData: CreateGroupPostRequest
+  ): Promise<GroupPost> {
     try {
       // Check if user is member of the group
       const membership = await this.sql`
@@ -829,7 +919,7 @@ export class SocialService {
       `;
 
       if ((membership as any[]).length === 0) {
-        throw new Error('Not a member of this group');
+        throw new Error("Not a member of this group");
       }
 
       // Check if group allows posts
@@ -838,7 +928,7 @@ export class SocialService {
       `;
 
       if ((group as any[]).length === 0 || !(group as any[])[0].allow_posts) {
-        throw new Error('Posts not allowed in this group');
+        throw new Error("Posts not allowed in this group");
       }
 
       const result = await this.sql`
@@ -862,15 +952,19 @@ export class SocialService {
 
       return this.mapGroupPost((result as any[])[0]);
     } catch (error) {
-      console.error('Create group post error:', error);
-      throw new Error('Failed to create group post');
+      console.error("Create group post error:", error);
+      throw new Error("Failed to create group post");
     }
   }
 
   /**
    * Get group posts
    */
-  async getGroupPosts(groupId: string, page: number = 1, limit: number = 10): Promise<{ posts: GroupPost[], total: number }> {
+  async getGroupPosts(
+    groupId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{ posts: GroupPost[]; total: number }> {
     try {
       const offset = (page - 1) * limit;
 
@@ -887,16 +981,16 @@ export class SocialService {
           SELECT COUNT(*) as total
           FROM group_posts
           WHERE group_id = ${groupId} AND parent_post_id IS NULL AND is_hidden = FALSE
-        `
+        `,
       ]);
 
       return {
         posts: (posts as any[]).map(this.mapGroupPostWithAuthor),
-        total: parseInt((countResult as any[])[0].total)
+        total: parseInt((countResult as any[])[0].total),
       };
     } catch (error) {
-      console.error('Get group posts error:', error);
-      throw new Error('Failed to get group posts');
+      console.error("Get group posts error:", error);
+      throw new Error("Failed to get group posts");
     }
   }
 
@@ -928,7 +1022,7 @@ export class SocialService {
         )
       `;
     } catch (error) {
-      console.error('Create notification error:', error);
+      console.error("Create notification error:", error);
       // Don't throw - notifications are not critical
     }
   }
@@ -936,13 +1030,22 @@ export class SocialService {
   /**
    * Get user notifications
    */
-  async getUserNotifications(userId: string, page: number = 1, limit: number = 20, unreadOnly: boolean = false): Promise<{ notifications: SocialNotification[], total: number, unreadCount: number }> {
+  async getUserNotifications(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    unreadOnly: boolean = false
+  ): Promise<{
+    notifications: SocialNotification[];
+    total: number;
+    unreadCount: number;
+  }> {
     try {
       const offset = (page - 1) * limit;
       let whereClause = `user_id = '${userId}'`;
-      
+
       if (unreadOnly) {
-        whereClause += ' AND is_read = FALSE';
+        whereClause += " AND is_read = FALSE";
       }
 
       const notificationsQuery = `
@@ -963,27 +1066,31 @@ export class SocialService {
         FROM social_notifications
         WHERE user_id = '${userId}' AND is_read = FALSE
       `;
-      
+
       const [notifications, countResult, unreadResult] = await Promise.all([
         this.sql.unsafe(notificationsQuery),
         this.sql.unsafe(totalQuery),
-        this.sql.unsafe(unreadQuery)
+        this.sql.unsafe(unreadQuery),
       ]);
 
       return {
-        notifications: ((notifications as unknown) as any[]).map(this.mapNotificationWithSender),
-        total: parseInt(((countResult as unknown) as any[])[0].total),
-        unreadCount: parseInt(((unreadResult as unknown) as any[])[0].unread)
+        notifications: (notifications as unknown as any[]).map(
+          this.mapNotificationWithSender
+        ),
+        total: parseInt((countResult as unknown as any[])[0].total),
+        unreadCount: parseInt((unreadResult as unknown as any[])[0].unread),
       };
     } catch (error) {
-      console.error('Get notifications error:', error);
-      throw new Error('Failed to get notifications');
+      console.error("Get notifications error:", error);
+      throw new Error("Failed to get notifications");
     }
   }
 
   // ==================== HELPER METHODS ====================
 
-  private async createDefaultSocialProfile(userId: string): Promise<UserSocialProfile> {
+  private async createDefaultSocialProfile(
+    userId: string
+  ): Promise<UserSocialProfile> {
     try {
       const result = await this.sql`
         INSERT INTO user_social_profiles (user_id, display_name)
@@ -993,8 +1100,8 @@ export class SocialService {
 
       return this.mapSocialProfile((result as any[])[0]);
     } catch (error) {
-      console.error('Create default profile error:', error);
-      throw new Error('Failed to create default profile');
+      console.error("Create default profile error:", error);
+      throw new Error("Failed to create default profile");
     }
   }
 
@@ -1008,7 +1115,7 @@ export class SocialService {
         this.sql`
           SELECT COUNT(*) as count FROM social_connections
           WHERE follower_id = ${userId} AND status = 'accepted'
-        `
+        `,
       ]);
 
       await this.sql`
@@ -1019,7 +1126,7 @@ export class SocialService {
         WHERE user_id = ${userId}
       `;
     } catch (error) {
-      console.error('Update follow counts error:', error);
+      console.error("Update follow counts error:", error);
     }
   }
 
@@ -1041,11 +1148,15 @@ export class SocialService {
     followingCount: row.following_count || 0,
     sharedRoutinesCount: row.shared_routines_count || 0,
     likesReceived: row.likes_received || 0,
-    fitnessLevel: row.fitness_level || 'beginner',
-    yearsTraining: row.years_training ? parseFloat(row.years_training) : undefined,
-    preferredWorkoutTypes: row.preferred_workout_types ? JSON.parse(row.preferred_workout_types) : [],
+    fitnessLevel: row.fitness_level || "beginner",
+    yearsTraining: row.years_training
+      ? parseFloat(row.years_training)
+      : undefined,
+    preferredWorkoutTypes: row.preferred_workout_types
+      ? JSON.parse(row.preferred_workout_types)
+      : [],
     createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 
   private mapSocialConnection = (row: any): SocialConnection => ({
@@ -1055,7 +1166,7 @@ export class SocialService {
     status: row.status,
     connectionType: row.connection_type,
     createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 
   private mapSocialConnectionWithUser = (row: any): any => ({
@@ -1063,8 +1174,8 @@ export class SocialService {
     userProfile: {
       displayName: row.display_name,
       avatarUrl: row.avatar_url,
-      fitnessLevel: row.fitness_level
-    }
+      fitnessLevel: row.fitness_level,
+    },
   });
 
   private mapSharedRoutine = (row: any): SharedRoutine => ({
@@ -1088,15 +1199,15 @@ export class SocialService {
     ratingAverage: row.rating_average ? parseFloat(row.rating_average) : 0,
     ratingCount: row.rating_count || 0,
     createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 
   private mapSharedRoutineWithCreator = (row: any): SharedRoutine => ({
     ...this.mapSharedRoutine(row),
     creator: {
       displayName: row.creator_name,
-      avatarUrl: row.creator_avatar
-    } as any
+      avatarUrl: row.creator_avatar,
+    } as any,
   });
 
   private mapWorkoutPost = (row: any): WorkoutPost => ({
@@ -1112,15 +1223,15 @@ export class SocialService {
     commentsCount: row.comments_count || 0,
     sharesCount: row.shares_count || 0,
     createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 
   private mapWorkoutPostWithAuthor = (row: any): WorkoutPost => ({
     ...this.mapWorkoutPost(row),
     author: {
       displayName: row.author_name,
-      avatarUrl: row.author_avatar
-    } as any
+      avatarUrl: row.author_avatar,
+    } as any,
   });
 
   private mapChallenge = (row: any): Challenge => ({
@@ -1132,9 +1243,13 @@ export class SocialService {
     category: row.category,
     startDate: new Date(row.start_date),
     endDate: new Date(row.end_date),
-    registrationEndDate: row.registration_end_date ? new Date(row.registration_end_date) : undefined,
+    registrationEndDate: row.registration_end_date
+      ? new Date(row.registration_end_date)
+      : undefined,
     rules: row.rules ? JSON.parse(row.rules) : [],
-    entryRequirements: row.entry_requirements ? JSON.parse(row.entry_requirements) : {},
+    entryRequirements: row.entry_requirements
+      ? JSON.parse(row.entry_requirements)
+      : {},
     rewards: row.rewards ? JSON.parse(row.rewards) : [],
     maxParticipants: row.max_participants,
     teamSize: row.team_size,
@@ -1144,15 +1259,17 @@ export class SocialService {
     teamsCount: row.teams_count || 0,
     status: row.status,
     createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 
   private mapChallengeWithCreator = (row: any): Challenge => ({
     ...this.mapChallenge(row),
-    creator: row.creator_name ? {
-      displayName: row.creator_name,
-      avatarUrl: row.creator_avatar
-    } as any : undefined
+    creator: row.creator_name
+      ? ({
+          displayName: row.creator_name,
+          avatarUrl: row.creator_avatar,
+        } as any)
+      : undefined,
   });
 
   private mapChallengeParticipant = (row: any): ChallengeParticipant => ({
@@ -1161,13 +1278,15 @@ export class SocialService {
     userId: row.user_id,
     teamId: row.team_id,
     status: row.status,
-    currentProgress: row.current_progress ? JSON.parse(row.current_progress) : {},
+    currentProgress: row.current_progress
+      ? JSON.parse(row.current_progress)
+      : {},
     bestResult: row.best_result ? parseFloat(row.best_result) : undefined,
     finalPosition: row.final_position,
     rewardsEarned: row.rewards_earned ? JSON.parse(row.rewards_earned) : [],
     joinedAt: new Date(row.joined_at),
     completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 
   private mapNotificationWithSender = (row: any): any => ({
@@ -1182,12 +1301,14 @@ export class SocialService {
     isRead: row.is_read,
     isDismissed: row.is_dismissed,
     actionData: row.action_data ? JSON.parse(row.action_data) : {},
-    sender: row.sender_name ? {
-      displayName: row.sender_name,
-      avatarUrl: row.sender_avatar
-    } : null,
+    sender: row.sender_name
+      ? {
+          displayName: row.sender_name,
+          avatarUrl: row.sender_avatar,
+        }
+      : null,
     createdAt: new Date(row.created_at),
-    readAt: row.read_at ? new Date(row.read_at) : undefined
+    readAt: row.read_at ? new Date(row.read_at) : undefined,
   });
 
   private mapCommunityGroup = (row: any): CommunityGroup => ({
@@ -1205,15 +1326,15 @@ export class SocialService {
     moderators: row.moderators ? JSON.parse(row.moderators) : [],
     rules: row.rules,
     createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 
   private mapCommunityGroupWithCreator = (row: any): CommunityGroup => ({
     ...this.mapCommunityGroup(row),
     creator: {
       displayName: row.creator_name,
-      avatarUrl: row.creator_avatar
-    } as any
+      avatarUrl: row.creator_avatar,
+    } as any,
   });
 
   private mapGroupMembership = (row: any): GroupMembership => ({
@@ -1223,7 +1344,7 @@ export class SocialService {
     role: row.role,
     status: row.status,
     joinedAt: new Date(row.joined_at),
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 
   private mapGroupPost = (row: any): GroupPost => ({
@@ -1241,14 +1362,14 @@ export class SocialService {
     isLocked: row.is_locked || false,
     isHidden: row.is_hidden || false,
     createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at)
+    updatedAt: new Date(row.updated_at),
   });
 
   private mapGroupPostWithAuthor = (row: any): GroupPost => ({
     ...this.mapGroupPost(row),
     author: {
       displayName: row.author_name,
-      avatarUrl: row.author_avatar
-    } as any
+      avatarUrl: row.author_avatar,
+    } as any,
   });
 }
