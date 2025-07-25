@@ -28,6 +28,8 @@ import webhookRoutes from "./routes/webhooks";
 import workoutRoutes from "./routes/workouts";
 import authDevRoutes from "./routes/auth-dev";
 import { handleQueue, handleScheduled, triggerManualJob, getJobStatus } from "./lib/queue-handler";
+import { ProductionMonitoring, createMonitoringMiddleware } from "./lib/monitoring";
+import { createRedisCache } from "./lib/redis-cache";
 
 // Types for Cloudflare Workers environment
 type Bindings = {
@@ -57,11 +59,26 @@ type Variables = {
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+// Initialize monitoring (shared across requests)
+let monitoring: ProductionMonitoring | null = null;
+
 // Security and performance middleware
 app.use("*", ddosProtectionMiddleware());
 app.use("*", cloudflareProtectionMiddleware());
 app.use("*", loggingMiddleware);
 app.use("*", prettyJSON());
+
+// Initialize monitoring middleware
+app.use("*", async (c, next) => {
+  if (!monitoring) {
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const redis = createRedisCache(c.env.UPSTASH_REDIS_URL, c.env.UPSTASH_REDIS_TOKEN);
+    monitoring = new ProductionMonitoring(c.env.ENVIRONMENT || "development", redis, database);
+  }
+  
+  // Add monitoring middleware
+  return createMonitoringMiddleware(monitoring)(c, next);
+});
 app.use(
   "*",
   cors({
@@ -210,6 +227,109 @@ app.get("/api/v1/admin/jobs/:jobId/status", smartAuth(), async (c) => {
   }
 });
 
+// Monitoring and Observability endpoints (admin only)
+app.get("/api/v1/admin/monitoring/health", smartAuth(), async (c) => {
+  const user = c.var.user;
+  if (user?.role !== 'admin') {
+    return c.json({ error: "Unauthorized - Admin access required" }, 403);
+  }
+
+  try {
+    if (!monitoring) {
+      return c.json({ error: "Monitoring not initialized" }, 500);
+    }
+
+    const healthChecks = await monitoring.performHealthChecks();
+    return c.json({
+      success: true,
+      data: healthChecks
+    });
+  } catch (error) {
+    console.error("Health check error:", error);
+    return c.json({
+      error: "Health check failed",
+      message: error instanceof Error ? error.message : "Unknown error"
+    }, 500);
+  }
+});
+
+app.get("/api/v1/admin/monitoring/metrics", smartAuth(), async (c) => {
+  const user = c.var.user;
+  if (user?.role !== 'admin') {
+    return c.json({ error: "Unauthorized - Admin access required" }, 403);
+  }
+
+  try {
+    if (!monitoring) {
+      return c.json({ error: "Monitoring not initialized" }, 500);
+    }
+
+    const timeframe = parseInt(c.req.query("timeframe") || "3600000"); // 1 hour default
+    const dashboard = monitoring.getMetricsDashboard(timeframe);
+    
+    return c.json({
+      success: true,
+      data: dashboard
+    });
+  } catch (error) {
+    console.error("Metrics dashboard error:", error);
+    return c.json({
+      error: "Failed to get metrics dashboard",
+      message: error instanceof Error ? error.message : "Unknown error"
+    }, 500);
+  }
+});
+
+app.get("/api/v1/admin/monitoring/prometheus", smartAuth(), async (c) => {
+  const user = c.var.user;
+  if (user?.role !== 'admin') {
+    return c.json({ error: "Unauthorized - Admin access required" }, 403);
+  }
+
+  try {
+    if (!monitoring) {
+      return c.text("# Monitoring not initialized\n");
+    }
+
+    const prometheusMetrics = monitoring.exportPrometheusMetrics();
+    
+    return c.text(prometheusMetrics, 200, {
+      'Content-Type': 'text/plain; charset=utf-8'
+    });
+  } catch (error) {
+    console.error("Prometheus export error:", error);
+    return c.text("# Error exporting metrics\n");
+  }
+});
+
+app.post("/api/v1/admin/monitoring/alert", smartAuth(), async (c) => {
+  const user = c.var.user;
+  if (user?.role !== 'admin') {
+    return c.json({ error: "Unauthorized - Admin access required" }, 403);
+  }
+
+  try {
+    if (!monitoring) {
+      return c.json({ error: "Monitoring not initialized" }, 500);
+    }
+
+    const { name, value, tags, unit } = await c.req.json();
+    
+    monitoring.recordMetric(name, value, tags || {}, unit);
+    
+    return c.json({
+      success: true,
+      message: "Metric recorded successfully"
+    });
+  } catch (error) {
+    console.error("Record metric error:", error);
+    return c.json({
+      error: "Failed to record metric",
+      message: error instanceof Error ? error.message : "Unknown error"
+    }, 500);
+  }
+});
+
 // 404 handler
 app.notFound((c) => {
   return c.json(
@@ -235,3 +355,7 @@ app.onError((err, c) => {
 });
 
 export default app;
+
+// Export queue and scheduled handlers for Cloudflare Workers
+export { handleQueue as queue };
+export { handleScheduled as scheduled };

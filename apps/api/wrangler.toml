@@ -22,6 +22,27 @@ binding = "CACHE"
 id = "7a248575697e448b8e2a008734bdc6d3"
 preview_id = "7a248575697e448b8e2a008734bdc6d3"
 
+# Queue for background jobs
+[[queues.producers]]
+binding = "FITAI_QUEUE"
+queue = "fitai-background-jobs"
+
+[[queues.consumers]]
+queue = "fitai-background-jobs"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "fitai-failed-jobs"
+
+# Scheduled events (cron triggers)
+[triggers]
+crons = [
+  "0 2 * * *",    # Daily at 2 AM
+  "0 3 * * 0",    # Weekly on Sunday at 3 AM  
+  "0 4 1 * *",    # Monthly on 1st at 4 AM
+  "*/15 * * * *"  # Every 15 minutes
+]
+
 # D1 Database binding (if using D1 instead of external DB)
 # [[d1_databases]]
 # binding = "DB"

@@ -216,7 +216,8 @@ export class BackgroundJobProcessor {
 
       return {
         success: true,
-        data: results
+        data: results,
+        processed_at: new Date()
       };
     } catch (error) {
       throw new Error(`Analytics calculation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -277,7 +278,8 @@ export class BackgroundJobProcessor {
         data: {
           achievements_earned: newAchievements.length,
           achievements: newAchievements
-        }
+        },
+        processed_at: new Date()
       };
     } catch (error) {
       throw new Error(`Achievement check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -353,7 +355,8 @@ export class BackgroundJobProcessor {
 
       return {
         success: true,
-        data: reportData
+        data: reportData,
+        processed_at: new Date()
       };
     } catch (error) {
       throw new Error(`Progress report generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -376,7 +379,8 @@ export class BackgroundJobProcessor {
           category,
           period,
           updated_at: new Date().toISOString()
-        }
+        },
+        processed_at: new Date()
       };
     } catch (error) {
       throw new Error(`Leaderboard update failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -426,7 +430,8 @@ export class BackgroundJobProcessor {
 
       return {
         success: true,
-        data: exportData
+        data: exportData,
+        processed_at: new Date()
       };
     } catch (error) {
       throw new Error(`Data export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -457,7 +462,8 @@ export class BackgroundJobProcessor {
         data: {
           preloaded_keys: results.length,
           results
-        }
+        },
+        processed_at: new Date()
       };
     } catch (error) {
       throw new Error(`Cache preloading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -482,7 +488,8 @@ export class BackgroundJobProcessor {
 
       return {
         success: true,
-        data: insights
+        data: insights,
+        processed_at: new Date()
       };
     } catch (error) {
       throw new Error(`Health data processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -513,7 +520,8 @@ export class BackgroundJobProcessor {
         data: {
           processed: results.length,
           results
-        }
+        },
+        processed_at: new Date()
       };
     } catch (error) {
       throw new Error(`Notification batch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -546,7 +554,8 @@ export class BackgroundJobProcessor {
 
       return {
         success: true,
-        data: (analysis as any[])[0] || null
+        data: (analysis as any[])[0] || null,
+        processed_at: new Date()
       };
     } catch (error) {
       throw new Error(`Workout analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -578,7 +587,8 @@ export class BackgroundJobProcessor {
         data: {
           activity_created: true,
           activity_type: activityType
-        }
+        },
+        processed_at: new Date()
       };
     } catch (error) {
       throw new Error(`Social feed update failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

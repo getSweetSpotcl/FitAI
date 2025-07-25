@@ -1,6 +1,6 @@
 /**
- * Production Monitoring and Analytics
- * Cloudflare Workers integration with logging and error tracking
+ * Advanced Production Monitoring and Observability
+ * Comprehensive monitoring with metrics, tracing, alerts, and analytics
  */
 
 export interface MonitoringEvent {
@@ -11,17 +11,142 @@ export interface MonitoringEvent {
   metadata?: Record<string, any>;
   duration?: number;
   error?: string;
+  traceId?: string;
+  spanId?: string;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface HealthCheckResult {
+  service: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  responseTime: number;
+  timestamp: string;
+  details?: Record<string, any>;
+  error?: string;
+}
+
+export interface MetricSnapshot {
+  name: string;
+  value: number;
+  timestamp: string;
+  tags: Record<string, string>;
+  unit?: string;
+}
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  metric: string;
+  threshold: number;
+  operator: 'gt' | 'lt' | 'eq' | 'gte' | 'lte';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  enabled: boolean;
 }
 
 export class ProductionMonitoring {
   private environment: string;
-
-  constructor(environment: string = "production") {
+  private metrics: Map<string, MetricSnapshot[]> = new Map();
+  private healthChecks: Map<string, HealthCheckResult> = new Map();
+  private alertRules: AlertRule[] = [];
+  private currentTraceId?: string;
+  
+  constructor(
+    environment: string = "production",
+    private redis?: any,
+    private database?: any
+  ) {
     this.environment = environment;
+    this.initializeDefaultAlerts();
   }
 
   /**
-   * Track API endpoint performance
+   * Initialize default alert rules
+   */
+  private initializeDefaultAlerts(): void {
+    this.alertRules = [
+      {
+        id: 'high_error_rate',
+        name: 'High Error Rate',
+        metric: 'http.request.error_rate',
+        threshold: 0.05, // 5%
+        operator: 'gt',
+        severity: 'high',
+        enabled: true
+      },
+      {
+        id: 'slow_response_time',
+        name: 'Slow Response Time',
+        metric: 'http.request.duration.avg',
+        threshold: 2000, // 2 seconds
+        operator: 'gt',
+        severity: 'medium',
+        enabled: true
+      },
+      {
+        id: 'database_errors',
+        name: 'Database Connection Issues',
+        metric: 'database.error_rate',
+        threshold: 0.01, // 1%
+        operator: 'gt',
+        severity: 'critical',
+        enabled: true
+      },
+      {
+        id: 'ai_cost_spike',
+        name: 'AI Cost Spike',
+        metric: 'ai.cost.hourly',
+        threshold: 10, // $10/hour
+        operator: 'gt',
+        severity: 'medium',
+        enabled: true
+      }
+    ];
+  }
+
+  /**
+   * Start distributed tracing for a request
+   */
+  startTrace(): string {
+    this.currentTraceId = crypto.randomUUID();
+    return this.currentTraceId;
+  }
+
+  /**
+   * Record a custom metric
+   */
+  recordMetric(name: string, value: number, tags: Record<string, string> = {}, unit?: string): void {
+    const metric: MetricSnapshot = {
+      name,
+      value,
+      timestamp: new Date().toISOString(),
+      tags: {
+        environment: this.environment,
+        ...tags
+      },
+      unit
+    };
+
+    if (!this.metrics.has(name)) {
+      this.metrics.set(name, []);
+    }
+
+    const values = this.metrics.get(name)!;
+    values.push(metric);
+
+    // Keep only last 1000 values per metric
+    if (values.length > 1000) {
+      values.shift();
+    }
+
+    // Check alert rules
+    this.checkAlertRules(name, value);
+
+    // Send to external monitoring
+    this.sendMetricToExternal(metric);
+  }
+
+  /**
+   * Track API endpoint performance with enhanced metrics
    */
   async trackApiCall(
     endpoint: string,
@@ -31,6 +156,9 @@ export class ProductionMonitoring {
     userId?: string,
     error?: string
   ) {
+    const isError = statusCode >= 400;
+    const spanId = crypto.randomUUID();
+
     const event: MonitoringEvent = {
       event: "api_call",
       timestamp: new Date().toISOString(),
@@ -38,12 +166,45 @@ export class ProductionMonitoring {
       userId,
       duration,
       error,
+      traceId: this.currentTraceId,
+      spanId,
+      severity: isError ? (statusCode >= 500 ? 'high' : 'medium') : 'low',
       metadata: {
         endpoint,
         method,
         statusCode,
+        isError,
+        userType: userId ? 'authenticated' : 'anonymous'
       },
     };
+
+    // Record detailed metrics
+    this.recordMetric('http.request.duration', duration, {
+      method,
+      endpoint: this.sanitizeEndpoint(endpoint),
+      status: statusCode.toString(),
+      error: isError.toString()
+    }, 'milliseconds');
+
+    this.recordMetric('http.request.count', 1, {
+      method,
+      endpoint: this.sanitizeEndpoint(endpoint),
+      status: statusCode.toString()
+    });
+
+    if (isError) {
+      this.recordMetric('http.request.errors', 1, {
+        method,
+        endpoint: this.sanitizeEndpoint(endpoint),
+        status: statusCode.toString(),
+        error_type: error || 'unknown'
+      });
+    }
+
+    // Track user-specific metrics
+    if (userId) {
+      this.recordMetric('user.api.calls', 1, { userId, endpoint: this.sanitizeEndpoint(endpoint) });
+    }
 
     await this.sendEvent(event);
   }
@@ -193,6 +354,125 @@ export class ProductionMonitoring {
   }
 
   /**
+   * Comprehensive health check for all services
+   */
+  async performHealthChecks(): Promise<Record<string, HealthCheckResult>> {
+    const results: Record<string, HealthCheckResult> = {};
+
+    // Database health check
+    if (this.database) {
+      results.database = await this.checkDatabaseHealth();
+    }
+
+    // Redis health check
+    if (this.redis) {
+      results.redis = await this.checkRedisHealth();
+    }
+
+    // API health check
+    results.api = await this.checkApiHealth();
+
+    // Store health check results
+    for (const [service, result] of Object.entries(results)) {
+      this.healthChecks.set(service, result);
+      
+      // Record health metrics
+      this.recordMetric('health.service.status', result.status === 'healthy' ? 1 : 0, {
+        service,
+        status: result.status
+      });
+
+      this.recordMetric('health.service.response_time', result.responseTime, {
+        service
+      }, 'milliseconds');
+    }
+
+    return results;
+  }
+
+  /**
+   * Get metrics dashboard data
+   */
+  getMetricsDashboard(timeframe: number = 3600000): any {
+    const cutoff = new Date(Date.now() - timeframe);
+    const dashboard = {
+      timestamp: new Date().toISOString(),
+      timeframe_ms: timeframe,
+      overview: {
+        total_requests: 0,
+        error_rate: 0,
+        avg_response_time: 0,
+        active_users: new Set<string>()
+      },
+      metrics: {} as any,
+      alerts: {
+        active: 0,
+        critical: 0
+      },
+      services: Object.fromEntries(this.healthChecks.entries())
+    };
+
+    // Calculate overview metrics
+    for (const [name, values] of this.metrics.entries()) {
+      const recentValues = values.filter(v => new Date(v.timestamp) >= cutoff);
+      
+      if (recentValues.length > 0) {
+        const nums = recentValues.map(v => v.value);
+        dashboard.metrics[name] = {
+          count: recentValues.length,
+          sum: nums.reduce((a, b) => a + b, 0),
+          avg: nums.reduce((a, b) => a + b, 0) / nums.length,
+          min: Math.min(...nums),
+          max: Math.max(...nums),
+          latest: recentValues[recentValues.length - 1].value,
+          unit: recentValues[0].unit
+        };
+
+        // Calculate overview stats
+        if (name === 'http.request.count') {
+          dashboard.overview.total_requests += dashboard.metrics[name].sum;
+        }
+        if (name === 'http.request.duration') {
+          dashboard.overview.avg_response_time = dashboard.metrics[name].avg;
+        }
+      }
+    }
+
+    // Calculate error rate
+    const totalRequests = dashboard.overview.total_requests;
+    const totalErrors = dashboard.metrics['http.request.errors']?.sum || 0;
+    dashboard.overview.error_rate = totalRequests > 0 ? totalErrors / totalRequests : 0;
+
+    return dashboard;
+  }
+
+  /**
+   * Export metrics in Prometheus format
+   */
+  exportPrometheusMetrics(): string {
+    const lines: string[] = [];
+    const now = Date.now();
+
+    for (const [name, values] of this.metrics.entries()) {
+      if (values.length === 0) continue;
+
+      const latest = values[values.length - 1];
+      const metricName = name.replace(/[^a-zA-Z0-9_]/g, '_');
+      
+      lines.push(`# HELP ${metricName} FitAI application metric`);
+      lines.push(`# TYPE ${metricName} gauge`);
+      
+      const tags = Object.entries(latest.tags)
+        .map(([k, v]) => `${k}="${v}"`)
+        .join(',');
+      
+      lines.push(`${metricName}{${tags}} ${latest.value} ${now}`);
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
    * Health check for monitoring system
    */
   async healthCheck(): Promise<boolean> {
@@ -202,6 +482,142 @@ export class ProductionMonitoring {
     } catch (error) {
       console.error("Monitoring health check failed:", error);
       return false;
+    }
+  }
+
+  // Private helper methods
+
+  private async checkDatabaseHealth(): Promise<HealthCheckResult> {
+    const startTime = Date.now();
+    
+    try {
+      if (this.database) {
+        await this.database`SELECT 1 as health_check`;
+      }
+      
+      const responseTime = Date.now() - startTime;
+      
+      return {
+        service: 'database',
+        status: responseTime > 5000 ? 'degraded' : 'healthy',
+        responseTime,
+        timestamp: new Date().toISOString(),
+        details: { connection: 'active' }
+      };
+    } catch (error) {
+      return {
+        service: 'database',
+        status: 'unhealthy',
+        responseTime: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  private async checkRedisHealth(): Promise<HealthCheckResult> {
+    const startTime = Date.now();
+    
+    try {
+      if (this.redis) {
+        await this.redis.ping();
+      }
+      
+      const responseTime = Date.now() - startTime;
+      
+      return {
+        service: 'redis',
+        status: responseTime > 2000 ? 'degraded' : 'healthy',
+        responseTime,
+        timestamp: new Date().toISOString(),
+        details: { connection: 'active' }
+      };
+    } catch (error) {
+      return {
+        service: 'redis',
+        status: 'unhealthy',
+        responseTime: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  private async checkApiHealth(): Promise<HealthCheckResult> {
+    const startTime = Date.now();
+    
+    return {
+      service: 'api',
+      status: 'healthy',
+      responseTime: Date.now() - startTime,
+      timestamp: new Date().toISOString(),
+      details: { 
+        version: '1.0.0',
+        environment: this.environment 
+      }
+    };
+  }
+
+  private checkAlertRules(metricName: string, value: number): void {
+    for (const rule of this.alertRules) {
+      if (!rule.enabled || rule.metric !== metricName) continue;
+
+      let shouldAlert = false;
+      
+      switch (rule.operator) {
+        case 'gt': shouldAlert = value > rule.threshold; break;
+        case 'gte': shouldAlert = value >= rule.threshold; break;
+        case 'lt': shouldAlert = value < rule.threshold; break;
+        case 'lte': shouldAlert = value <= rule.threshold; break;
+        case 'eq': shouldAlert = value === rule.threshold; break;
+      }
+
+      if (shouldAlert) {
+        this.triggerAlert(rule, value);
+      }
+    }
+  }
+
+  private triggerAlert(rule: AlertRule, currentValue: number): void {
+    const alert = {
+      id: crypto.randomUUID(),
+      rule_id: rule.id,
+      rule_name: rule.name,
+      metric: rule.metric,
+      threshold: rule.threshold,
+      current_value: currentValue,
+      severity: rule.severity,
+      timestamp: new Date().toISOString(),
+      environment: this.environment
+    };
+
+    console.warn(`🚨 ALERT: ${rule.name} - ${rule.metric} ${rule.operator} ${rule.threshold}, current: ${currentValue}`);
+
+    // Send alert to external systems
+    if (this.redis) {
+      try {
+        this.redis.lpush('alerts_queue', JSON.stringify(alert));
+      } catch (error) {
+        console.error('Failed to queue alert:', error);
+      }
+    }
+  }
+
+  private sanitizeEndpoint(endpoint: string): string {
+    // Replace dynamic segments with placeholders
+    return endpoint
+      .replace(/\/\d+/g, '/:id')
+      .replace(/\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '/:uuid')
+      .replace(/\/\w{20,}/g, '/:token');
+  }
+
+  private sendMetricToExternal(metric: MetricSnapshot): void {
+    if (this.redis) {
+      try {
+        this.redis.lpush('metrics_queue', JSON.stringify(metric));
+      } catch (error) {
+        console.warn('Failed to send metric to external monitoring:', error);
+      }
     }
   }
 }

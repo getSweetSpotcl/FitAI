@@ -36,10 +36,11 @@ export async function handleQueue(
       // Acknowledge successful processing
       message.ack();
       
+      const jobData = job as any;
       results.push({
         messageId: message.id,
-        jobId: job.id,
-        jobType: job.type,
+        jobId: jobData.id,
+        jobType: jobData.type,
         success: result.success,
         duration: result.duration
       });
