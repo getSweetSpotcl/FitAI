@@ -15,6 +15,7 @@ import aiRoutes from "./routes/ai";
 import analyticsRoutes from "./routes/analytics";
 import docsRoutes from "./routes/docs";
 import exerciseRoutes from "./routes/exercises";
+import { SQLOptimizer } from "./lib/sql-optimizer";
 import healthRoutes from "./routes/health";
 import paymentRoutes from "./routes/payments";
 import premiumAiRoutes from "./routes/premium-ai";
@@ -22,13 +23,16 @@ import routineRoutes from "./routes/routines";
 import socialRoutes from "./routes/social";
 // Import routes
 import userRoutes from "./routes/users";
+import { createDatabaseClient } from "./db/database";
 import webhookRoutes from "./routes/webhooks";
 import workoutRoutes from "./routes/workouts";
 import authDevRoutes from "./routes/auth-dev";
+import { handleQueue, handleScheduled, triggerManualJob, getJobStatus } from "./lib/queue-handler";
 
 // Types for Cloudflare Workers environment
 type Bindings = {
   CACHE: KVNamespace;
+  FITAI_QUEUE: Queue;
   DATABASE_URL: string;
   REDIS_URL: string;
   UPSTASH_REDIS_URL: string;
@@ -94,6 +98,37 @@ app.get("/health", (c) => {
   });
 });
 
+// Database optimization endpoint (admin only)
+app.post("/api/v1/admin/optimize-db", smartAuth(), async (c) => {
+  const user = c.var.user;
+  if (user?.role !== 'admin') {
+    return c.json({ error: "Unauthorized - Admin access required" }, 403);
+  }
+
+  try {
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const optimizer = new SQLOptimizer(sql);
+    
+    // Create optimal indexes
+    await optimizer.createOptimalIndexes();
+    
+    // Perform maintenance
+    await optimizer.performMaintenance();
+    
+    return c.json({
+      success: true,
+      message: "Database optimization completed successfully",
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Database optimization error:", error);
+    return c.json({
+      error: "Database optimization failed",
+      message: error instanceof Error ? error.message : "Unknown error"
+    }, 500);
+  }
+});
+
 // Public Routes (no authentication required)
 app.route("/api-docs", docsRoutes); // API Documentation
 app.route("/api/v1/webhooks", webhookRoutes);
@@ -129,6 +164,51 @@ app.route("/api/v1/premium-ai", premiumAiRoutes);
 // Analytics Routes (authenticated users)
 app.use("/api/v1/analytics/*", smartAuth());
 app.route("/api/v1/analytics", analyticsRoutes);
+
+// Background Jobs Management (admin only)
+app.post("/api/v1/admin/jobs/trigger", smartAuth(), async (c) => {
+  const user = c.var.user;
+  if (user?.role !== 'admin') {
+    return c.json({ error: "Unauthorized - Admin access required" }, 403);
+  }
+
+  try {
+    const { jobType, data } = await c.req.json();
+    const result = await triggerManualJob(jobType, data, c.env);
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Manual job trigger error:", error);
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error"
+    }, 500);
+  }
+});
+
+app.get("/api/v1/admin/jobs/:jobId/status", smartAuth(), async (c) => {
+  const user = c.var.user;
+  if (user?.role !== 'admin') {
+    return c.json({ error: "Unauthorized - Admin access required" }, 403);
+  }
+
+  try {
+    const jobId = c.req.param("jobId");
+    const status = await getJobStatus(jobId, c.env);
+    
+    return c.json({
+      success: true,
+      jobId,
+      ...status
+    });
+  } catch (error) {
+    console.error("Job status check error:", error);
+    return c.json({
+      error: "Failed to check job status",
+      message: error instanceof Error ? error.message : "Unknown error"
+    }, 500);
+  }
+});
 
 // 404 handler
 app.notFound((c) => {

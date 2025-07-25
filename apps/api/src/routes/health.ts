@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { createDatabaseClient, getUserByClerkId } from "../db/database";
+import { createDatabaseClient, getUserByClerkId, getHealthMetricsSummary, getHealthTrends, getRecentSleepData, getLatestHRVData } from "../db/database";
 import { HealthDataService } from "../lib/health-data-service";
 import { HealthKitService } from "../lib/healthkit-service";
+import { SmartHealthSyncService } from "../lib/smart-health-sync-service";
 import { clerkAuth } from "../middleware/clerk-auth";
 import type {
   AddHealthMetricRequest,
@@ -402,10 +403,73 @@ health.get("/stats", async (c) => {
       throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
-    // TODO: Implementar consultas reales a la base de datos de salud
-    // Esta funcionalidad requiere integración con HealthKit/Google Fit
-    throw new HTTPException(501, { 
-      message: "Estadísticas de salud no implementadas aún. La integración con HealthKit estará disponible próximamente." 
+    if (!c.env?.DATABASE_URL) {
+      throw new HTTPException(500, { message: "Database not configured" });
+    }
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const period = parseInt(c.req.query("days") || "7");
+
+    // Get health metrics summary
+    const healthSummary = await getHealthMetricsSummary(sql, user.userId!, period);
+    
+    // Get sleep data
+    const sleepData = await getRecentSleepData(sql, user.userId!, period);
+    
+    // Get latest HRV data
+    const hrvData = await getLatestHRVData(sql, user.userId!);
+
+    // Process metrics into organized format
+    const processedMetrics: any = {};
+    healthSummary.metrics.forEach((metric: any) => {
+      processedMetrics[metric.metric_type] = {
+        value: parseFloat(metric.avg_value) || 0,
+        max: parseFloat(metric.max_value) || 0,
+        min: parseFloat(metric.min_value) || 0,
+        unit: metric.unit,
+        count: parseInt(metric.count) || 0
+      };
+    });
+
+    // Build comprehensive health stats
+    const healthStats = {
+      period: {
+        days: period,
+        from: new Date(Date.now() - period * 24 * 60 * 60 * 1000).toISOString(),
+        to: new Date().toISOString()
+      },
+      metrics: {
+        steps: processedMetrics.steps || { value: 0, unit: 'count' },
+        calories: processedMetrics.calories || { value: 0, unit: 'kcal' },
+        heart_rate: processedMetrics.heart_rate || { value: 0, unit: 'bpm' },
+        distance: processedMetrics.distance || { value: 0, unit: 'km' }
+      },
+      workouts: {
+        total: parseInt(healthSummary.workouts.total_workouts) || 0,
+        avgDuration: parseFloat(healthSummary.workouts.avg_duration) || 0,
+        avgVolume: parseFloat(healthSummary.workouts.avg_volume) || 0,
+        avgRPE: parseFloat(healthSummary.workouts.avg_rpe) || 0
+      },
+      sleep: {
+        avgHours: sleepData.avg_sleep_minutes ? Math.round((sleepData.avg_sleep_minutes / 60) * 10) / 10 : 0,
+        avgEfficiency: parseFloat(sleepData.avg_sleep_efficiency) || 0,
+        avgQuality: parseFloat(sleepData.avg_quality_score) || 0,
+        nightsTracked: parseInt(sleepData.nights_tracked) || 0
+      },
+      recovery: hrvData ? {
+        rmssd: parseFloat(hrvData.rmssd_ms) || 0,
+        recoveryScore: parseInt(hrvData.recovery_score) || 0,
+        stressScore: parseInt(hrvData.stress_score) || 0,
+        lastRecorded: hrvData.recorded_at
+      } : null,
+      insights: generateHealthInsights(processedMetrics, healthSummary.workouts, sleepData, hrvData)
+    };
+
+    return c.json({
+      success: true,
+      data: healthStats,
+      message: "Estadísticas de salud obtenidas exitosamente",
+      lastUpdated: new Date().toISOString()
     });
   } catch (error) {
     console.error("Health stats error:", error);
@@ -1405,6 +1469,388 @@ health.get("/heart-rate/analysis", async (c) => {
 });
 
 /**
+ * Perform intelligent bidirectional sync with HealthKit
+ * POST /api/v1/health/smart-sync
+ */
+health.post("/smart-sync", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const dbUser = await getUserByClerkId(sql, user.userId || user.id);
+    if (!dbUser) {
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
+    }
+
+    // Initialize Smart Health Sync Service
+    const smartSyncService = new SmartHealthSyncService(
+      sql,
+      c.env.OPENAI_API_KEY
+    );
+
+    // Perform bidirectional sync
+    const syncResult = await smartSyncService.performSmartSync(dbUser.id);
+
+    return c.json({
+      success: true,
+      data: {
+        syncResult,
+        message: syncResult.success 
+          ? "Sincronización inteligente completada exitosamente"
+          : "Sincronización completada con algunos errores",
+        recordsProcessed: {
+          fromHealthKit: syncResult.recordsProcessed.fromHealthKit,
+          toHealthKit: syncResult.recordsProcessed.toHealthKit
+        },
+        newRecommendations: syncResult.newRecommendations.length,
+        nextSyncAt: syncResult.nextSyncAt,
+        errors: syncResult.errors || []
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error("Smart health sync error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, {
+      message: "Error en sincronización inteligente de salud",
+    });
+  }
+});
+
+/**
+ * Get health sync configuration for user
+ * GET /api/v1/health/sync-config
+ */
+health.get("/sync-config", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const dbUser = await getUserByClerkId(sql, user.userId || user.id);
+    if (!dbUser) {
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
+    }
+
+    // Get sync configuration
+    const smartSyncService = new SmartHealthSyncService(
+      sql,
+      c.env.OPENAI_API_KEY
+    );
+
+    // Get current configuration (this will create defaults if none exists)
+    const syncConfig = await smartSyncService.getSyncConfiguration(dbUser.id);
+
+    return c.json({
+      success: true,
+      data: {
+        syncConfiguration: syncConfig,
+        availableMetrics: [
+          "heart_rate", "steps", "calories", "sleep_analysis", 
+          "blood_pressure", "weight", "body_fat", "hrv"
+        ],
+        syncFrequencyOptions: ["real_time", "hourly", "daily"]
+      },
+      message: "Configuración de sincronización obtenida"
+    });
+
+  } catch (error) {
+    console.error("Get sync config error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, {
+      message: "Error obteniendo configuración de sincronización",
+    });
+  }
+});
+
+/**
+ * Update health sync configuration
+ * PUT /api/v1/health/sync-config
+ */
+health.put("/sync-config", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const configUpdate = await c.req.json() as {
+      syncEnabled?: boolean;
+      syncFrequency?: 'real_time' | 'hourly' | 'daily';
+      autoWriteEnabled?: boolean;
+      priorityMetrics?: string[];
+      intelligentRecommendations?: boolean;
+    };
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const dbUser = await getUserByClerkId(sql, user.userId || user.id);
+    if (!dbUser) {
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
+    }
+
+    // Update sync configuration
+    const updateParts: string[] = [];
+    
+    if (configUpdate.syncEnabled !== undefined) {
+      updateParts.push(`sync_enabled = ${configUpdate.syncEnabled}`);
+    }
+    if (configUpdate.syncFrequency) {
+      updateParts.push(`sync_frequency = '${configUpdate.syncFrequency}'`);
+    }
+    if (configUpdate.autoWriteEnabled !== undefined) {
+      updateParts.push(`auto_write_enabled = ${configUpdate.autoWriteEnabled}`);
+    }
+    if (configUpdate.priorityMetrics && Array.isArray(configUpdate.priorityMetrics)) {
+      updateParts.push(`priority_metrics = '${JSON.stringify(configUpdate.priorityMetrics)}'`);
+    }
+    if (configUpdate.intelligentRecommendations !== undefined) {
+      updateParts.push(`intelligent_recommendations = ${configUpdate.intelligentRecommendations}`);
+    }
+
+    if (updateParts.length === 0) {
+      throw new HTTPException(400, { message: "No se proporcionaron actualizaciones" });
+    }
+
+    updateParts.push("updated_at = NOW()");
+
+    await sql.unsafe(`
+      INSERT INTO health_sync_configs (
+        user_id, sync_enabled, sync_frequency, auto_write_enabled,
+        priority_metrics, intelligent_recommendations, created_at, updated_at
+      ) VALUES (
+        '${dbUser.id}', 
+        ${configUpdate.syncEnabled || true}, 
+        '${configUpdate.syncFrequency || 'daily'}',
+        ${configUpdate.autoWriteEnabled || false}, 
+        '${JSON.stringify(configUpdate.priorityMetrics || ['heart_rate', 'steps', 'calories'])}',
+        ${configUpdate.intelligentRecommendations || true}, 
+        NOW(), NOW()
+      )
+      ON CONFLICT (user_id) DO UPDATE SET
+        ${updateParts.join(", ")}
+    `);
+
+    return c.json({
+      success: true,
+      message: "Configuración de sincronización actualizada",
+      data: configUpdate
+    });
+
+  } catch (error) {
+    console.error("Update sync config error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, {
+      message: "Error actualizando configuración de sincronización",
+    });
+  }
+});
+
+/**
+ * Get intelligent health recommendations
+ * GET /api/v1/health/smart-recommendations
+ */
+health.get("/smart-recommendations", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const dbUser = await getUserByClerkId(sql, user.userId || user.id);
+    if (!dbUser) {
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
+    }
+
+    const smartSyncService = new SmartHealthSyncService(
+      sql,
+      c.env.OPENAI_API_KEY
+    );
+
+    // Generate fresh recommendations
+    const recommendations = await smartSyncService.generateSmartRecommendations(dbUser.id);
+
+    // Get recent recommendations from database
+    const recentRecommendations = await sql`
+      SELECT * FROM smart_health_recommendations
+      WHERE user_id = ${dbUser.id}
+        AND valid_until > NOW()
+        AND implemented = false
+      ORDER BY created_at DESC
+      LIMIT 10
+    `;
+
+    return c.json({
+      success: true,
+      data: {
+        newRecommendations: recommendations,
+        activeRecommendations: (recentRecommendations as any[]).map(rec => ({
+          id: rec.id,
+          type: rec.type,
+          severity: rec.severity,
+          title: rec.title,
+          description: rec.description,
+          actionItems: JSON.parse(rec.action_items || '[]'),
+          confidence: rec.confidence,
+          validUntil: rec.valid_until,
+          createdAt: rec.created_at
+        })),
+        totalActive: (recentRecommendations as any[]).length
+      },
+      message: "Recomendaciones inteligentes de salud obtenidas"
+    });
+
+  } catch (error) {
+    console.error("Get smart recommendations error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, {
+      message: "Error obteniendo recomendaciones inteligentes",
+    });
+  }
+});
+
+/**
+ * Mark health recommendation as implemented
+ * POST /api/v1/health/recommendations/:recommendationId/implement
+ */
+health.post("/recommendations/:recommendationId/implement", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const recommendationId = c.req.param("recommendationId");
+    const { feedback } = await c.req.json();
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const dbUser = await getUserByClerkId(sql, user.userId || user.id);
+    if (!dbUser) {
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
+    }
+
+    // Update recommendation as implemented
+    const result = await sql`
+      UPDATE smart_health_recommendations 
+      SET 
+        implemented = true,
+        implemented_at = NOW(),
+        user_feedback = ${feedback || null},
+        updated_at = NOW()
+      WHERE id = ${recommendationId} 
+        AND user_id = ${dbUser.id}
+      RETURNING *
+    `;
+
+    if ((result as any[]).length === 0) {
+      throw new HTTPException(404, { message: "Recomendación no encontrada" });
+    }
+
+    return c.json({
+      success: true,
+      message: "Recomendación marcada como implementada",
+      data: {
+        recommendationId,
+        implementedAt: new Date().toISOString(),
+        feedback
+      }
+    });
+
+  } catch (error) {
+    console.error("Implement recommendation error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, {
+      message: "Error implementando recomendación",
+    });
+  }
+});
+
+/**
+ * Get sync history and logs
+ * GET /api/v1/health/sync-history
+ */
+health.get("/sync-history", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const dbUser = await getUserByClerkId(sql, user.userId || user.id);
+    if (!dbUser) {
+      throw new HTTPException(404, { message: "Usuario no encontrado" });
+    }
+
+    const limit = parseInt(c.req.query("limit") || "20");
+    const offset = parseInt(c.req.query("offset") || "0");
+
+    // Get sync history
+    const syncLogs = await sql`
+      SELECT * FROM health_sync_logs
+      WHERE user_id = ${dbUser.id}
+      ORDER BY sync_time DESC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `;
+
+    const totalCount = await sql`
+      SELECT COUNT(*) as count FROM health_sync_logs
+      WHERE user_id = ${dbUser.id}
+    `;
+
+    return c.json({
+      success: true,
+      data: {
+        syncHistory: (syncLogs as any[]).map(log => ({
+          id: log.id,
+          syncDirection: log.sync_direction,
+          recordsFromHealthKit: log.records_from_healthkit,
+          recordsToHealthKit: log.records_to_healthkit,
+          newRecommendationsCount: log.new_recommendations_count,
+          syncTime: log.sync_time,
+          nextSyncAt: log.next_sync_at,
+          success: log.success,
+          errors: JSON.parse(log.errors || '[]')
+        })),
+        pagination: {
+          total: parseInt((totalCount as any[])[0]?.count || '0'),
+          limit,
+          offset,
+          hasMore: (syncLogs as any[]).length === limit
+        }
+      },
+      message: "Historial de sincronización obtenido"
+    });
+
+  } catch (error) {
+    console.error("Get sync history error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, {
+      message: "Error obteniendo historial de sincronización",
+    });
+  }
+});
+
+/**
  * Update health profile
  * PUT /api/v1/health/profile/healthkit
  */
@@ -1499,6 +1945,72 @@ function generateHRVInsights(
     insights.push(
       "📉 Tu HRV está declinando - revisa tu entrenamiento y recuperación"
     );
+  }
+
+  return insights;
+}
+
+// Helper function to generate health insights
+function generateHealthInsights(metrics: any, workouts: any, sleep: any, hrv: any): string[] {
+  const insights: string[] = [];
+
+  // Steps insight
+  const steps = metrics.steps?.value || 0;
+  if (steps >= 10000) {
+    insights.push("🎯 ¡Excelente! Has superado los 10,000 pasos recomendados");
+  } else if (steps >= 5000) {
+    insights.push("👍 Buen progreso en actividad diaria, intenta llegar a 10,000 pasos");
+  } else if (steps > 0) {
+    insights.push("📈 Aumenta tu actividad diaria para mejorar tu salud general");
+  }
+
+  // Workout insights
+  const totalWorkouts = workouts.total_workouts || 0;
+  if (totalWorkouts >= 4) {
+    insights.push("💪 Excelente consistencia en tus entrenamientos esta semana");
+  } else if (totalWorkouts >= 2) {
+    insights.push("👌 Buen ritmo de entrenamiento, intenta mantener la consistencia");
+  } else if (totalWorkouts === 1) {
+    insights.push("🏃‍♂️ ¡Buen comienzo! Intenta entrenar al menos 2-3 veces por semana");
+  }
+
+  // Sleep insights
+  const avgSleepHours = sleep.avg_sleep_minutes ? sleep.avg_sleep_minutes / 60 : 0;
+  if (avgSleepHours >= 7 && avgSleepHours <= 9) {
+    insights.push("😴 Excelente duración de sueño para la recuperación");
+  } else if (avgSleepHours < 7) {
+    insights.push("⏰ Intenta dormir al menos 7-8 horas para mejor recuperación");
+  } else if (avgSleepHours > 9) {
+    insights.push("💤 Estás durmiendo mucho, revisa tu calidad de sueño");
+  }
+
+  // HRV insights
+  if (hrv && hrv.recovery_score) {
+    const recoveryScore = hrv.recovery_score;
+    if (recoveryScore >= 80) {
+      insights.push("🟢 Excelente recuperación - listo para entrenamientos intensos");
+    } else if (recoveryScore >= 60) {
+      insights.push("🟡 Recuperación moderada - considera entrenamientos de intensidad media");
+    } else {
+      insights.push("🔴 Recuperación baja - prioriza el descanso y entrenamientos suaves");
+    }
+  }
+
+  // Heart rate insights
+  const avgHeartRate = metrics.heart_rate?.value || 0;
+  if (avgHeartRate > 0) {
+    if (avgHeartRate < 60) {
+      insights.push("❤️ Frecuencia cardíaca en reposo excelente");
+    } else if (avgHeartRate <= 80) {
+      insights.push("❤️ Frecuencia cardíaca en reposo saludable");
+    } else {
+      insights.push("❤️ Considera mejorar tu condición cardiovascular");
+    }
+  }
+
+  // Default insight if no data
+  if (insights.length === 0) {
+    insights.push("📱 Conecta tu dispositivo de salud para obtener insights personalizados");
   }
 
   return insights;

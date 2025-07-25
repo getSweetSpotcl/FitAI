@@ -1,8 +1,11 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
-import { createDatabaseClient } from "../db/database";
+import { createDatabaseClient, getUserAchievements, getAvailableAchievements, checkWorkoutAchievements, grantAchievement, getAllAchievements } from "../db/database";
 import { SocialService } from "../lib/social-service";
+import { LeaderboardService } from "../lib/leaderboard-service";
+import { DynamicAchievementsService } from "../lib/dynamic-achievements-service";
+import { RealTimeFeedService } from "../lib/real-time-feed-service";
 import { clerkAuth } from "../middleware/clerk-auth";
 import type {
   ChallengesQuery,
@@ -535,7 +538,7 @@ social.post("/routines/:routineId/like", async (c) => {
 
 /**
  * GET /api/v1/social/feed
- * Get social feed
+ * Get personalized real-time social feed
  */
 social.get("/feed", async (c) => {
   try {
@@ -544,31 +547,63 @@ social.get("/feed", async (c) => {
       throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
-    const query: SocialFeedQuery = {
-      page: parseInt(c.req.query("page") || "1"),
-      limit: parseInt(c.req.query("limit") || "10"),
-      feedType: (c.req.query("feedType") as any) || "all",
-      contentTypes: c.req.query("contentTypes")?.split(","),
-    };
+    // Parse query parameters with new format
+    const feedType = c.req.query("feedType") as 'following' | 'discover' | 'global' | 'trending' || "following";
+    const limit = parseInt(c.req.query("limit") || "20");
+    const offset = parseInt(c.req.query("offset") || "0");
+    const timeframe = c.req.query("timeframe") as 'hour' | 'day' | 'week' | 'month' || "day";
+    const activityTypes = c.req.query("activityTypes")?.split(",");
+    const includeOwnActivities = c.req.query("includeOwnActivities") === "true";
+
+    // Validate parameters
+    const validFeedTypes = ['following', 'discover', 'global', 'trending'];
+    const validTimeframes = ['hour', 'day', 'week', 'month'];
+    
+    if (!validFeedTypes.includes(feedType)) {
+      throw new HTTPException(400, { 
+        message: `Tipo de feed inválido. Valores permitidos: ${validFeedTypes.join(', ')}` 
+      });
+    }
+    
+    if (!validTimeframes.includes(timeframe)) {
+      throw new HTTPException(400, { 
+        message: `Marco temporal inválido. Valores permitidos: ${validTimeframes.join(', ')}` 
+      });
+    }
 
     const database = createDatabaseClient(c.env.DATABASE_URL);
-    const socialService = new SocialService(database);
+    const feedService = new RealTimeFeedService(database);
 
-    const result = await socialService.getSocialFeed(user.id, query);
+    const result = await feedService.getPersonalizedFeed({
+      userId: user.id,
+      feedType,
+      limit,
+      offset,
+      timeframe,
+      activityTypes,
+      includeOwnActivities
+    });
 
     return c.json({
       success: true,
       data: {
-        posts: result.posts,
+        activities: result.activities,
         pagination: {
-          page: query.page!,
-          limit: query.limit!,
-          total: result.total,
-          totalPages: Math.ceil(result.total / query.limit!),
-          hasNext: query.page! * query.limit! < result.total,
-          hasPrev: query.page! > 1,
+          offset: offset,
+          limit: limit,
+          totalCount: result.totalCount,
+          hasMore: result.hasMore,
+          nextOffset: result.nextOffset,
         },
+        metadata: {
+          feedType,
+          timeframe,
+          lastUpdated: result.lastUpdated,
+          availableFeedTypes: validFeedTypes,
+          availableTimeframes: validTimeframes
+        }
       },
+      message: `Feed ${feedType} obtenido exitosamente`
     });
   } catch (error) {
     console.error("Get feed error:", error);
@@ -855,10 +890,38 @@ social.get("/achievements", async (c) => {
 
     const sql = createDatabaseClient(c.env.DATABASE_URL);
 
-    // TODO: Implementar sistema de logros real con base de datos
-    // Esta funcionalidad requiere tablas de achievements y user_achievements
-    throw new HTTPException(501, { 
-      message: "Sistema de logros no implementado aún. Esta funcionalidad estará disponible próximamente." 
+    // Get user achievements (earned)
+    const earnedAchievements = await getUserAchievements(sql, user.userId!);
+    
+    // Get available achievements (not yet earned)
+    const availableAchievements = await getAvailableAchievements(sql, user.userId!);
+
+    // Calculate stats
+    const totalEarned = earnedAchievements.length;
+    const totalAvailable = totalEarned + availableAchievements.length;
+    const rareCount = earnedAchievements.filter(ua => ua.achievement?.rarity === "rare").length;
+    const epicCount = earnedAchievements.filter(ua => ua.achievement?.rarity === "epic").length;
+    const legendaryCount = earnedAchievements.filter(ua => ua.achievement?.rarity === "legendary").length;
+    
+    // Calculate total points earned
+    const totalPoints = earnedAchievements.reduce((sum, ua) => sum + (ua.achievement?.points || 0), 0);
+
+    return c.json({
+      success: true,
+      data: {
+        earned: earnedAchievements,
+        available: availableAchievements,
+        stats: {
+          totalEarned,
+          totalAvailable,
+          totalPoints,
+          rareCount,
+          epicCount,
+          legendaryCount,
+          completionRate: totalAvailable > 0 ? Math.round((totalEarned / totalAvailable) * 100) : 0
+        },
+      },
+      message: "Logros obtenidos exitosamente"
     });
   } catch (error) {
     console.error("Get achievements error:", error);
@@ -871,7 +934,7 @@ social.get("/achievements", async (c) => {
 
 /**
  * GET /api/v1/social/leaderboards
- * Get leaderboards
+ * Get dynamic leaderboards with real user data
  */
 social.get("/leaderboards", async (c) => {
   try {
@@ -880,57 +943,83 @@ social.get("/leaderboards", async (c) => {
       throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
-    const { period = "weekly", category = "volume" } = c.req.query();
+    // Parse query parameters with validation
+    const period = c.req.query("period") as 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all_time' || "weekly";
+    const category = c.req.query("category") as 'volume' | 'workouts' | 'streak' | 'achievements' | 'consistency' || "volume";
+    const limit = parseInt(c.req.query("limit") || "50");
 
-    // Mock leaderboard data
-    const leaderboard = [
-      {
-        rank: 1,
-        user: {
-          id: "user_1",
-          displayName: "Ana PowerLifter",
-          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=ana1",
-        },
-        value: 25680,
-        unit: "kg",
-        change: "+2",
+    // Validate parameters
+    const validPeriods = ['daily', 'weekly', 'monthly', 'yearly', 'all_time'];
+    const validCategories = ['volume', 'workouts', 'streak', 'achievements', 'consistency'];
+    
+    if (!validPeriods.includes(period)) {
+      throw new HTTPException(400, { 
+        message: `Período inválido. Valores permitidos: ${validPeriods.join(', ')}` 
+      });
+    }
+    
+    if (!validCategories.includes(category)) {
+      throw new HTTPException(400, { 
+        message: `Categoría inválida. Valores permitidas: ${validCategories.join(', ')}` 
+      });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const leaderboardService = new LeaderboardService(database);
+
+    // Get leaderboard data
+    const result = await leaderboardService.getLeaderboard({
+      period,
+      category,
+      limit,
+      userId: user.id
+    });
+
+    // Transform data to match legacy format for backward compatibility
+    const transformedLeaderboard = result.leaderboard.map(entry => ({
+      rank: entry.rank,
+      user: {
+        id: entry.userId,
+        displayName: entry.displayName,
+        avatar: entry.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${entry.userId}`,
       },
-      {
-        rank: 2,
-        user: {
-          id: "user_2",
-          displayName: "Carlos Beast",
-          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=carlos",
-        },
-        value: 24150,
-        unit: "kg",
-        change: "-1",
+      value: entry.value,
+      unit: entry.unit,
+      change: entry.change,
+      badge: entry.badge,
+      streak: entry.streak,
+      lastActivity: entry.lastActivity
+    }));
+
+    const transformedUserPosition = result.userPosition ? {
+      rank: result.userPosition.rank,
+      user: {
+        id: result.userPosition.userId,
+        displayName: result.userPosition.displayName,
+        avatar: result.userPosition.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${result.userPosition.userId}`,
       },
-      {
-        rank: 47,
-        user: {
-          id: user.id,
-          displayName: "Tú",
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
-        },
-        value: 12450,
-        unit: "kg",
-        change: "+3",
-      },
-    ];
+      value: result.userPosition.value,
+      unit: result.userPosition.unit,
+      change: result.userPosition.change,
+      badge: result.userPosition.badge
+    } : undefined;
 
     return c.json({
       success: true,
       data: {
-        leaderboard,
-        userPosition: leaderboard.find((entry) => entry.user.id === user.id),
+        leaderboard: transformedLeaderboard,
+        userPosition: transformedUserPosition,
         metadata: {
-          period,
-          category,
-          totalParticipants: 2847,
-          lastUpdated: new Date(),
+          period: result.metadata.period,
+          category: result.metadata.category,
+          totalParticipants: result.metadata.totalParticipants,
+          lastUpdated: result.metadata.lastUpdated,
+          cutoffDate: result.metadata.cutoffDate,
+          availablePeriods: validPeriods,
+          availableCategories: validCategories
         },
       },
+      message: `Clasificación de ${category} (${period}) obtenida exitosamente`
     });
   } catch (error) {
     console.error("Get leaderboards error:", error);
@@ -1159,6 +1248,501 @@ social.post("/groups/:groupId/posts", async (c) => {
       throw new HTTPException(400, { message: "Datos de post inválidos" });
     }
     throw new HTTPException(500, { message: "Error creando post en el grupo" });
+  }
+});
+
+// Check for new achievements based on user activity
+social.post("/achievements/check", clerkAuth, async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    if (!c.env?.DATABASE_URL) {
+      throw new HTTPException(500, { message: "Database not configured" });
+    }
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+
+    // Check for new achievements
+    const newAchievements = await checkWorkoutAchievements(sql, user.userId!);
+
+    return c.json({
+      success: true,
+      data: {
+        newAchievements,
+        count: newAchievements.length
+      },
+      message: newAchievements.length > 0 
+        ? `¡Felicidades! Has obtenido ${newAchievements.length} nuevo(s) logro(s)`
+        : "No hay nuevos logros disponibles"
+    });
+  } catch (error) {
+    console.error("Check achievements error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: "Error verificando logros" });
+  }
+});
+
+// Get all achievements (for admin or development purposes)
+social.get("/achievements/all", clerkAuth, async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    if (!c.env?.DATABASE_URL) {
+      throw new HTTPException(500, { message: "Database not configured" });
+    }
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const allAchievements = await getAllAchievements(sql);
+
+    return c.json({
+      success: true,
+      data: allAchievements,
+      message: "Todos los logros obtenidos exitosamente"
+    });
+  } catch (error) {
+    console.error("Get all achievements error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: "Error obteniendo todos los logros" });
+  }
+});
+
+// Grant achievement manually (for testing/admin purposes)
+social.post("/achievements/:achievementId/grant", clerkAuth, async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const achievementId = c.req.param("achievementId");
+    if (!achievementId) {
+      throw new HTTPException(400, { message: "ID de logro requerido" });
+    }
+
+    if (!c.env?.DATABASE_URL) {
+      throw new HTTPException(500, { message: "Database not configured" });
+    }
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    const granted = await grantAchievement(sql, user.userId!, achievementId);
+
+    if (!granted) {
+      return c.json({
+        success: false,
+        message: "El usuario ya tiene este logro"
+      });
+    }
+
+    return c.json({
+      success: true,
+      data: granted,
+      message: "Logro otorgado exitosamente"
+    });
+  } catch (error) {
+    console.error("Grant achievement error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: "Error otorgando logro" });
+  }
+});
+
+// ==================== REAL-TIME FEED SYSTEM ====================
+
+/**
+ * React to feed activity
+ * POST /api/v1/social/feed/:activityId/react
+ */
+social.post("/feed/:activityId/react", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const activityId = c.req.param("activityId");
+    const { reactionType } = await c.req.json();
+
+    if (!activityId) {
+      throw new HTTPException(400, { message: "ID de actividad requerido" });
+    }
+
+    if (!reactionType || !['like', 'love', 'fire', 'strong'].includes(reactionType)) {
+      throw new HTTPException(400, { 
+        message: "Tipo de reacción inválido. Valores permitidos: like, love, fire, strong" 
+      });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const feedService = new RealTimeFeedService(database);
+
+    const result = await feedService.reactToActivity(user.id, activityId, reactionType);
+
+    return c.json({
+      success: true,
+      data: {
+        reactionType,
+        newCount: result.newCount
+      },
+      message: "Reacción registrada exitosamente"
+    });
+  } catch (error) {
+    console.error("React to activity error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: "Error procesando reacción" });
+  }
+});
+
+/**
+ * Get trending activities
+ * GET /api/v1/social/feed/trending
+ */
+social.get("/feed/trending", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const limit = parseInt(c.req.query("limit") || "20");
+    const timeframe = c.req.query("timeframe") as 'hour' | 'day' | 'week' | 'month' || "day";
+
+    if (!['hour', 'day', 'week', 'month'].includes(timeframe)) {
+      throw new HTTPException(400, { 
+        message: "Marco temporal inválido. Valores permitidos: hour, day, week, month" 
+      });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const feedService = new RealTimeFeedService(database);
+
+    const trendingActivities = await feedService.getTrendingActivities(limit, timeframe);
+
+    return c.json({
+      success: true,
+      data: {
+        activities: trendingActivities,
+        metadata: {
+          timeframe,
+          limit,
+          lastUpdated: new Date()
+        }
+      },
+      message: "Actividades en tendencia obtenidas exitosamente"
+    });
+  } catch (error) {
+    console.error("Get trending activities error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: "Error obteniendo actividades en tendencia" });
+  }
+});
+
+/**
+ * Create workout activity (called from workout completion)
+ * POST /api/v1/social/feed/workout-activity
+ */
+social.post("/feed/workout-activity", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const workoutData = await c.req.json();
+
+    if (!workoutData.routineName && !workoutData.duration) {
+      throw new HTTPException(400, { 
+        message: "Datos de entrenamiento requeridos: routineName o duration" 
+      });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const feedService = new RealTimeFeedService(database);
+
+    // Get user profile data
+    const userProfile = await database`
+      SELECT display_name, avatar_url
+      FROM user_profiles
+      WHERE user_id = ${user.id}
+      LIMIT 1
+    `;
+
+    const profile = (userProfile as any[])[0];
+
+    const activities = await feedService.createWorkoutActivities(user.id, {
+      ...workoutData,
+      userName: profile?.display_name || user.firstName || 'Usuario',
+      userAvatar: profile?.avatar_url
+    });
+
+    // Trigger achievement check
+    const achievementsService = new DynamicAchievementsService(database);
+    const newAchievements = await achievementsService.processTriggerEvent({
+      userId: user.id,
+      eventType: 'workout_completed',
+      eventData: workoutData,
+      timestamp: new Date()
+    });
+
+    // Create achievement activities if any were earned
+    for (const achievement of newAchievements) {
+      await feedService.createActivity({
+        userId: user.id,
+        userName: profile?.display_name || user.firstName || 'Usuario',
+        userAvatar: profile?.avatar_url,
+        activityType: 'achievement_earned',
+        title: `¡Nuevo logro desbloqueado: ${achievement.nameEs}!`,
+        description: achievement.descriptionEs,
+        metadata: {
+          achievementId: achievement.id,
+          achievementRarity: achievement.rarity,
+          achievementPoints: achievement.points,
+          achievementIcon: achievement.icon
+        },
+        isHighlighted: achievement.rarity !== 'common',
+        mediaUrls: []
+      });
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        activitiesCreated: activities.length,
+        newAchievements: newAchievements.length,
+        activities: activities
+      },
+      message: `${activities.length} actividades creadas exitosamente`
+    });
+  } catch (error) {
+    console.error("Create workout activity error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: "Error creando actividad de entrenamiento" });
+  }
+});
+
+// ==================== DYNAMIC ACHIEVEMENTS SYSTEM ====================
+
+/**
+ * Initialize dynamic achievements system
+ * POST /api/v1/social/achievements/initialize
+ */
+social.post("/achievements/initialize", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    // Only allow admin users to initialize achievements
+    if (user.role !== "admin") {
+      throw new HTTPException(403, { message: "Acceso denegado. Solo administradores." });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const achievementsService = new DynamicAchievementsService(database);
+
+    await achievementsService.initializeDefaultAchievements();
+
+    return c.json({
+      success: true,
+      message: "Sistema de logros dinámicos inizalizado exitosamente"
+    });
+  } catch (error) {
+    console.error("Initialize achievements error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: "Error inicializando sistema de logros" });
+  }
+});
+
+/**
+ * Get user's dynamic achievement progress
+ * GET /api/v1/social/achievements/progress
+ */
+social.get("/achievements/progress", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const achievementsService = new DynamicAchievementsService(database);
+
+    const [progress, earned] = await Promise.all([
+      achievementsService.getUserAchievementProgress(user.id),
+      achievementsService.getUserEarnedAchievements(user.id)
+    ]);
+
+    // Calculate statistics
+    const totalPoints = earned.reduce((sum, achievement) => sum + achievement.points, 0);
+    const rarityCount = {
+      common: earned.filter(a => a.rarity === 'common').length,
+      rare: earned.filter(a => a.rarity === 'rare').length,
+      epic: earned.filter(a => a.rarity === 'epic').length,
+      legendary: earned.filter(a => a.rarity === 'legendary').length
+    };
+
+    const categoryCount = {
+      strength: earned.filter(a => a.category === 'strength').length,
+      endurance: earned.filter(a => a.category === 'endurance').length,
+      consistency: earned.filter(a => a.category === 'consistency').length,
+      social: earned.filter(a => a.category === 'social').length,
+      milestone: earned.filter(a => a.category === 'milestone').length,
+      special: earned.filter(a => a.category === 'special').length
+    };
+
+    return c.json({
+      success: true,
+      data: {
+        earnedAchievements: earned,
+        progressTracker: progress,
+        statistics: {
+          totalEarned: earned.length,
+          totalPoints,
+          rarityBreakdown: rarityCount,
+          categoryBreakdown: categoryCount,
+          recentlyEarned: earned.slice(0, 5), // Most recent 5
+          closestToEarning: progress
+            .filter(p => !p.isCompleted && p.progress > 50)
+            .sort((a, b) => b.progress - a.progress)
+            .slice(0, 3)
+        }
+      },
+      message: "Progreso de logros obtenido exitosamente"
+    });
+  } catch (error) {
+    console.error("Get achievement progress error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: "Error obteniendo progreso de logros" });
+  }
+});
+
+/**
+ * Trigger achievement check manually
+ * POST /api/v1/social/achievements/trigger
+ */
+social.post("/achievements/trigger", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    const { eventType, eventData } = await c.req.json();
+
+    if (!eventType) {
+      throw new HTTPException(400, { message: "eventType es requerido" });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const achievementsService = new DynamicAchievementsService(database);
+
+    const newAchievements = await achievementsService.processTriggerEvent({
+      userId: user.id,
+      eventType,
+      eventData: eventData || {},
+      timestamp: new Date()
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        newAchievements,
+        count: newAchievements.length
+      },
+      message: newAchievements.length > 0 
+        ? `¡Felicidades! Has obtenido ${newAchievements.length} nuevo(s) logro(s)`
+        : "No hay nuevos logros disponibles en este momento"
+    });
+  } catch (error) {
+    console.error("Trigger achievements error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: "Error procesando logros" });
+  }
+});
+
+/**
+ * Create custom achievement (Premium/Pro feature)
+ * POST /api/v1/social/achievements/custom
+ */
+social.post("/achievements/custom", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      throw new HTTPException(401, { message: "Usuario no autenticado" });
+    }
+
+    // Check if user has premium/pro plan for creating custom achievements
+    if (user.plan === "free") {
+      throw new HTTPException(402, {
+        message: "Plan Premium o Pro requerido para crear logros personalizados",
+      });
+    }
+
+    const achievementData = await c.req.json();
+
+    // Validate required fields
+    if (!achievementData.name || !achievementData.nameEs || !achievementData.conditions) {
+      throw new HTTPException(400, {
+        message: "Campos requeridos: name, nameEs, conditions"
+      });
+    }
+
+    const database = createDatabaseClient(c.env.DATABASE_URL);
+    const achievementsService = new DynamicAchievementsService(database);
+
+    const customAchievement = await achievementsService.createCustomAchievement(
+      user.id,
+      {
+        name: achievementData.name,
+        nameEs: achievementData.nameEs,
+        description: achievementData.description || '',
+        descriptionEs: achievementData.descriptionEs || '',
+        category: achievementData.category || 'special',
+        rarity: achievementData.rarity || 'common',
+        points: Math.min(achievementData.points || 10, 100), // Cap at 100 points
+        icon: achievementData.icon || '🏆',
+        conditions: achievementData.conditions,
+        isSecret: achievementData.isSecret || false,
+        isRepeatable: achievementData.isRepeatable || false,
+        cooldownDays: achievementData.cooldownDays,
+        prerequisites: achievementData.prerequisites || []
+      }
+    );
+
+    return c.json({
+      success: true,
+      data: customAchievement,
+      message: "Logro personalizado creado exitosamente"
+    });
+  } catch (error) {
+    console.error("Create custom achievement error:", error);
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(500, { message: "Error creando logro personalizado" });
   }
 });
 

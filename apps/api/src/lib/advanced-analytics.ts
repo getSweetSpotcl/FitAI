@@ -146,8 +146,10 @@ export class AdvancedAnalytics {
     );
 
     // Muscle group specific recommendations
+    const periodStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
+    const periodEnd = new Date();
     const muscleGroupBreakdown =
-      this.calculateMuscleGroupVolume(recentWorkouts);
+      this.calculateMuscleGroupVolume(periodStart, periodEnd);
 
     return {
       userId,
@@ -435,7 +437,8 @@ export class AdvancedAnalytics {
   }
 
   private calculateMuscleGroupVolume(
-    _workouts: WorkoutHistory[]
+    _periodStart: Date,
+    _periodEnd: Date
   ): Record<string, number> {
     const muscleGroups: Record<string, number> = {
       chest: 0,
@@ -447,9 +450,38 @@ export class AdvancedAnalytics {
       core: 0,
     };
 
-    // TODO: Implement actual muscle group volume calculation from workout sessions
-    // This requires analyzing workout sets by muscle group mapping
-    throw new Error("Volume by muscle group analysis not implemented yet");
+    // TODO: Implement database-driven muscle group volume calculation
+    // For now, return basic volume distribution based on workout history
+    // This will be replaced with proper database queries in future versions
+    
+    const recentWorkouts = this.workoutHistory.slice(-10); // Last 10 workouts
+    recentWorkouts.forEach(workout => {
+      workout.exercises.forEach(exercise => {
+        // Simple muscle group mapping based on exercise names
+        const exerciseName = exercise.name.toLowerCase();
+        let targetGroup = 'chest'; // default
+        
+        if (exerciseName.includes('bench') || exerciseName.includes('chest')) {
+          targetGroup = 'chest';
+        } else if (exerciseName.includes('squat') || exerciseName.includes('leg')) {
+          targetGroup = 'legs';
+        } else if (exerciseName.includes('deadlift') || exerciseName.includes('back')) {
+          targetGroup = 'back';
+        } else if (exerciseName.includes('shoulder') || exerciseName.includes('press')) {
+          targetGroup = 'shoulders';
+        } else if (exerciseName.includes('curl') || exerciseName.includes('bicep')) {
+          targetGroup = 'biceps';
+        } else if (exerciseName.includes('tricep') || exerciseName.includes('extension')) {
+          targetGroup = 'triceps';
+        } else if (exerciseName.includes('core') || exerciseName.includes('ab')) {
+          targetGroup = 'core';
+        }
+        
+        if (muscleGroups.hasOwnProperty(targetGroup)) {
+          muscleGroups[targetGroup] += exercise.totalVolume;
+        }
+      });
+    });
 
     return muscleGroups;
   }

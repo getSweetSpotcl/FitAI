@@ -1,18 +1,40 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { createDatabaseClient, getExercises } from "../db/database";
+import { IntelligentCache, CacheKeys } from "../lib/intelligent-cache";
+import { createRedisCache } from "../lib/redis-cache";
 
 type Bindings = {
   CACHE: KVNamespace;
   DATABASE_URL: string;
+  UPSTASH_REDIS_URL: string;
+  UPSTASH_REDIS_TOKEN: string;
   ENVIRONMENT: string;
 };
 
 const exercises = new Hono<{ Bindings: Bindings }>();
 
+// Initialize cache (shared across requests)
+let cache: IntelligentCache | null = null;
+
 // Get all exercises (public endpoint, no auth required)
 exercises.get("/", async (c) => {
   try {
+    // Initialize cache if not already done
+    if (!cache) {
+      cache = new IntelligentCache({
+        maxSize: 20 * 1024 * 1024, // 20MB for exercises
+        defaultTTL: 15 * 60 * 1000, // 15 minutes
+        maxEntries: 500
+      });
+      
+      // Initialize Redis if available
+      const redis = createRedisCache(c.env.UPSTASH_REDIS_URL, c.env.UPSTASH_REDIS_TOKEN);
+      if (redis) {
+        await cache.initRedis(redis);
+      }
+    }
+
     const category = c.req.query("category");
     const muscleGroup = c.req.query("muscle_group");
     const equipment = c.req.query("equipment");
@@ -20,17 +42,30 @@ exercises.get("/", async (c) => {
     const limit = parseInt(c.req.query("limit") || "50");
     const offset = parseInt(c.req.query("offset") || "0");
 
+    // Generate cache key
+    const filters = { category, muscle_group: muscleGroup, equipment, difficulty, limit, offset };
+    const cacheKey = CacheKeys.exercises(filters);
+
     const sql = createDatabaseClient(c.env.DATABASE_URL);
 
-    // Get exercises from database with filters
-    const exercisesData = await getExercises(sql, {
-      category,
-      muscle_group: muscleGroup,
-      equipment,
-      difficulty,
-      limit,
-      offset,
-    });
+    // Use cache-or-fetch pattern
+    const exercisesData = await cache.getOrFetch(
+      cacheKey,
+      async () => {
+        return await getExercises(sql, {
+          category,
+          muscle_group: muscleGroup,
+          equipment,
+          difficulty,
+          limit,
+          offset,
+        });
+      },
+      {
+        ttl: 30 * 60 * 1000, // 30 minutes for exercises
+        tags: ['exercises', 'public']
+      }
+    );
 
     return c.json({
       success: true,
@@ -46,6 +81,10 @@ exercises.get("/", async (c) => {
         equipment,
         difficulty,
       },
+      cache: {
+        cached: true,
+        key: cacheKey
+      }
     });
   } catch (error) {
     console.error("Get exercises error:", error);
@@ -194,6 +233,71 @@ exercises.get("/meta/equipment", async (c) => {
   } catch (error) {
     console.error("Get equipment error:", error);
     throw new HTTPException(500, { message: "Failed to get equipment" });
+  }
+});
+
+// Cache management endpoints
+exercises.get("/admin/cache/stats", async (c) => {
+  try {
+    if (!cache) {
+      return c.json({
+        success: true,
+        data: {
+          message: "Cache not initialized"
+        }
+      });
+    }
+
+    const stats = cache.getStats();
+    return c.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error("Get cache stats error:", error);
+    throw new HTTPException(500, { message: "Failed to get cache stats" });
+  }
+});
+
+exercises.post("/admin/cache/clear", async (c) => {
+  try {
+    if (!cache) {
+      return c.json({
+        success: true,
+        message: "Cache not initialized"
+      });
+    }
+
+    await cache.clear();
+    return c.json({
+      success: true,
+      message: "Cache cleared successfully"
+    });
+  } catch (error) {
+    console.error("Clear cache error:", error);
+    throw new HTTPException(500, { message: "Failed to clear cache" });
+  }
+});
+
+exercises.post("/admin/cache/warmup", async (c) => {
+  try {
+    if (!cache) {
+      return c.json({
+        success: false,
+        message: "Cache not initialized"
+      });
+    }
+
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
+    await cache.warmUp();
+    
+    return c.json({
+      success: true,
+      message: "Cache warmed up successfully"
+    });
+  } catch (error) {
+    console.error("Cache warmup error:", error);
+    throw new HTTPException(500, { message: "Failed to warm up cache" });
   }
 });
 

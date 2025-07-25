@@ -293,21 +293,63 @@ analytics.post("/reports/generate", async (c) => {
       )
     `;
 
-    // TODO: Queue background job to generate the actual report
-    // For now, we'll return the report ID for polling
+    // Generate report immediately (simplified implementation)
+    // In production, this would be queued as a background job
+    try {
+      // Convert sections object to array of enabled sections
+      const enabledSections = Object.keys(reportRequest.sections)
+        .filter(key => reportRequest.sections[key as keyof typeof reportRequest.sections] === true)
+        .map(key => {
+          // Map UI keys to internal keys
+          const keyMapping: { [key: string]: string } = {
+            'workoutSummary': 'workouts',
+            'progressCharts': 'progress',
+            'healthMetrics': 'health',
+            'achievements': 'achievements',
+            'insights': 'insights',
+            'comparisons': 'comparisons',
+            'predictions': 'predictions'
+          };
+          return keyMapping[key] || key;
+        });
 
-    return c.json(
-      {
+      const reportData = await generateAnalyticsReport(
+        database,
+        user.id,
+        reportRequest.reportType,
+        reportRequest.period.startDate,
+        reportRequest.period.endDate,
+        enabledSections
+      );
+
+      // Update report status to completed
+      await database`
+        UPDATE analytics_reports 
+        SET status = 'completed', report_data = ${JSON.stringify(reportData)}, completed_at = NOW()
+        WHERE id = ${reportId}
+      `;
+
+      return c.json({
         success: true,
         data: {
           reportId,
-          status: "pending",
-          message:
-            "Report generation started. Poll /reports/{reportId} for status updates.",
+          status: "completed",
+          reportData,
+          message: "Report generated successfully",
         },
-      },
-      202
-    );
+      });
+    } catch (error) {
+      // Update report status to failed
+      await database`
+        UPDATE analytics_reports 
+        SET status = 'failed', error_message = ${error instanceof Error ? error.message : 'Unknown error'}
+        WHERE id = ${reportId}
+      `;
+
+      throw new HTTPException(500, {
+        message: "Error generating analytics report",
+      });
+    }
   } catch (error) {
     console.error("Report generation error:", error);
     if (error instanceof HTTPException) {
@@ -553,5 +595,132 @@ analytics.get("/achievements", async (c) => {
     throw new HTTPException(500, { message: "Failed to fetch achievements" });
   }
 });
+
+// Helper function to generate analytics reports
+async function generateAnalyticsReport(
+  sql: any,
+  userId: string,
+  reportType: string,
+  startDate: Date,
+  endDate: Date,
+  sections: string[]
+): Promise<any> {
+  const reportData: any = {
+    reportType,
+    period: {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      days: Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    },
+    generatedAt: new Date().toISOString(),
+    sections: {}
+  };
+
+  // Get workout summary
+  if (sections.includes('workouts') || sections.includes('all')) {
+    const workoutStats = await sql`
+      SELECT 
+        COUNT(CASE WHEN completed_at IS NOT NULL THEN 1 END) as completed_workouts,
+        COUNT(*) as total_sessions,
+        AVG(duration_minutes) as avg_duration,
+        SUM(total_volume_kg) as total_volume,
+        AVG(average_rpe) as avg_rpe,
+        MIN(started_at) as first_workout,
+        MAX(started_at) as last_workout
+      FROM workout_sessions
+      WHERE user_id = ${userId}
+        AND started_at >= ${startDate.toISOString()}
+        AND started_at <= ${endDate.toISOString()}
+    `;
+
+    reportData.sections.workouts = {
+      summary: (workoutStats as any[])[0] || {},
+      trends: await getWorkoutTrends(sql, userId, startDate, endDate)
+    };
+  }
+
+  // Get progress metrics
+  if (sections.includes('progress') || sections.includes('all')) {
+    const progressData = await sql`
+      SELECT 
+        e.name,
+        e.name_es,
+        MIN(ws.weight_kg) as starting_weight,
+        MAX(ws.weight_kg) as current_weight,
+        COUNT(DISTINCT DATE(wse.started_at)) as days_trained
+      FROM workout_sets ws
+      JOIN workout_sessions wse ON ws.workout_session_id = wse.id
+      JOIN exercises e ON ws.exercise_id = e.id
+      WHERE wse.user_id = ${userId}
+        AND wse.completed_at IS NOT NULL
+        AND wse.started_at >= ${startDate.toISOString()}
+        AND wse.started_at <= ${endDate.toISOString()}
+      GROUP BY e.id, e.name, e.name_es
+      HAVING COUNT(*) >= 3
+      ORDER BY (MAX(ws.weight_kg) - MIN(ws.weight_kg)) DESC
+      LIMIT 10
+    `;
+
+    reportData.sections.progress = {
+      topExercises: progressData as any[],
+      totalImprovement: calculateTotalImprovement(progressData as any[])
+    };
+  }
+
+  // Get volume analysis
+  if (sections.includes('volume') || sections.includes('all')) {
+    const volumeData = await sql`
+      SELECT 
+        DATE(wse.started_at) as workout_date,
+        SUM(ws.reps * ws.weight_kg) as daily_volume,
+        COUNT(DISTINCT ws.exercise_id) as exercises_count
+      FROM workout_sets ws
+      JOIN workout_sessions wse ON ws.workout_session_id = wse.id
+      WHERE wse.user_id = ${userId}
+        AND wse.completed_at IS NOT NULL
+        AND wse.started_at >= ${startDate.toISOString()}
+        AND wse.started_at <= ${endDate.toISOString()}
+      GROUP BY DATE(wse.started_at)
+      ORDER BY workout_date
+    `;
+
+    reportData.sections.volume = {
+      dailyVolume: volumeData as any[],
+      averageVolume: calculateAverageVolume(volumeData as any[]),
+      peakVolume: Math.max(...(volumeData as any[]).map((d: any) => parseFloat(d.daily_volume) || 0))
+    };
+  }
+
+  return reportData;
+}
+
+// Helper functions
+async function getWorkoutTrends(sql: any, userId: string, startDate: Date, endDate: Date) {
+  return await sql`
+    SELECT 
+      DATE_TRUNC('week', started_at) as week,
+      COUNT(CASE WHEN completed_at IS NOT NULL THEN 1 END) as completed,
+      AVG(duration_minutes) as avg_duration
+    FROM workout_sessions
+    WHERE user_id = ${userId}
+      AND started_at >= ${startDate.toISOString()}
+      AND started_at <= ${endDate.toISOString()}
+    GROUP BY DATE_TRUNC('week', started_at)
+    ORDER BY week
+  `;
+}
+
+function calculateTotalImprovement(exercises: any[]): number {
+  return exercises.reduce((total, exercise) => {
+    const improvement = (parseFloat(exercise.current_weight) || 0) - (parseFloat(exercise.starting_weight) || 0);
+    return total + Math.max(improvement, 0);
+  }, 0);
+}
+
+function calculateAverageVolume(volumeData: any[]): number {
+  if (volumeData.length === 0) return 0;
+  const totalVolume = volumeData.reduce((sum, day) => sum + (parseFloat(day.daily_volume) || 0), 0);
+  return totalVolume / volumeData.length;
+}
 
 export default analytics;
