@@ -5,6 +5,7 @@ import { prettyJSON } from "hono/pretty-json";
 import { loggingMiddleware } from "./lib/logger";
 // Import Clerk middleware
 import { clerkAuth, requireAuth } from "./middleware/clerk-auth";
+import { smartAuth } from "./middleware/auth-helper";
 import {
   cloudflareProtectionMiddleware,
   ddosProtectionMiddleware,
@@ -23,6 +24,7 @@ import socialRoutes from "./routes/social";
 import userRoutes from "./routes/users";
 import webhookRoutes from "./routes/webhooks";
 import workoutRoutes from "./routes/workouts";
+import authDevRoutes from "./routes/auth-dev";
 
 // Types for Cloudflare Workers environment
 type Bindings = {
@@ -98,31 +100,34 @@ app.route("/api/v1/webhooks", webhookRoutes);
 app.route("/api/v1/exercises", exerciseRoutes); // Public exercise catalog
 app.route("/api/v1/health", healthRoutes); // Public health check
 
+// Development-only auth endpoints
+app.route("/api/v1/auth/dev", authDevRoutes);
+
 // Protected Routes (authentication required)
-app.use("/api/v1/users/*", clerkAuth(), requireAuth());
+app.use("/api/v1/users/*", smartAuth());
 app.route("/api/v1/users", userRoutes);
 
-app.use("/api/v1/workouts/*", clerkAuth(), requireAuth());
+app.use("/api/v1/workouts/*", smartAuth());
 app.route("/api/v1/workouts", workoutRoutes);
 
-app.use("/api/v1/routines/*", clerkAuth(), requireAuth());
+app.use("/api/v1/routines/*", smartAuth());
 app.route("/api/v1/routines", routineRoutes);
 
-app.use("/api/v1/ai/*", clerkAuth(), requireAuth());
+app.use("/api/v1/ai/*", smartAuth());
 app.route("/api/v1/ai", aiRoutes);
 
-app.use("/api/v1/payments/*", clerkAuth(), requireAuth());
+app.use("/api/v1/payments/*", smartAuth());
 app.route("/api/v1/payments", paymentRoutes);
 
-app.use("/api/v1/social/*", clerkAuth(), requireAuth());
+app.use("/api/v1/social/*", smartAuth());
 app.route("/api/v1/social", socialRoutes);
 
 // Premium Routes (premium/pro plan required)
-app.use("/api/v1/premium-ai/*", clerkAuth(), requireAuth());
+app.use("/api/v1/premium-ai/*", smartAuth());
 app.route("/api/v1/premium-ai", premiumAiRoutes);
 
 // Analytics Routes (authenticated users)
-app.use("/api/v1/analytics/*", clerkAuth(), requireAuth());
+app.use("/api/v1/analytics/*", smartAuth());
 app.route("/api/v1/analytics", analyticsRoutes);
 
 // 404 handler

@@ -447,11 +447,9 @@ export class AdvancedAnalytics {
       core: 0,
     };
 
-    // This would be implemented with actual muscle group mapping
-    // For now, return mock data
-    Object.keys(muscleGroups).forEach((group) => {
-      muscleGroups[group] = Math.floor(Math.random() * 5000) + 2000;
-    });
+    // TODO: Implement actual muscle group volume calculation from workout sessions
+    // This requires analyzing workout sets by muscle group mapping
+    throw new Error("Volume by muscle group analysis not implemented yet");
 
     return muscleGroups;
   }

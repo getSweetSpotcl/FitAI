@@ -97,7 +97,53 @@
           "response": []
         },
         {
-          "name": "2. Get User Profile",
+          "name": "2. Dev Login (Get Token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Login successful', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.token).to.be.a('string');",
+                  "    ",
+                  "    // Save token for all subsequent requests",
+                  "    pm.environment.set('auth_token', jsonData.token);",
+                  "    console.log('✅ Auth token saved for subsequent requests');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/auth/dev/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "auth", "dev", "login"]
+            },
+            "description": "Get a development token for testing (only works in development environment)"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get User Profile",
           "event": [
             {
               "listen": "test",
@@ -133,7 +179,7 @@
           "response": []
         },
         {
-          "name": "3. Get Exercises Catalog",
+          "name": "4. Get Exercises Catalog",
           "event": [
             {
               "listen": "test",
@@ -661,6 +707,96 @@
     {
       "name": "🔐 Authentication",
       "item": [
+        {
+          "name": "Dev Login (Development Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains token', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('success', true);",
+                  "    pm.expect(jsonData).to.have.property('token');",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "    ",
+                  "    // Save token for other requests",
+                  "    pm.environment.set('auth_token', jsonData.token);",
+                  "    pm.environment.set('user_id', jsonData.user.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// This endpoint only works in development environment",
+                  "console.log('⚠️  This endpoint is for development only!');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/auth/dev/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "auth", "dev", "login"]
+            },
+            "description": "Development-only login endpoint. Returns a mock JWT token for testing. DO NOT use in production."
+          },
+          "response": []
+        },
+        {
+          "name": "Dev Token Info",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains info', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('example');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/auth/dev/token-info",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "auth", "dev", "token-info"]
+            },
+            "description": "Get information about how to obtain a development token"
+          },
+          "response": []
+        },
         {
           "name": "Webhook - User Created (Clerk)",
           "request": {

@@ -256,6 +256,7 @@ export async function createUser(
   }
 }
 
+
 export async function getExercises(
   sql: DatabaseClient,
   filters?: {
@@ -313,8 +314,19 @@ export async function getExercises(
       );
     });
 
+    console.log("Executing query:", interpolatedQuery);
     const result = await sql.unsafe(interpolatedQuery);
-    return result as unknown as Exercise[];
+    console.log("Query result:", result);
+    
+    // Check if result is the actual data or needs processing
+    if (Array.isArray(result)) {
+      return result as Exercise[];
+    } else if (result && typeof result === 'object' && 'rows' in result) {
+      return result.rows as Exercise[];
+    } else {
+      console.error("Unexpected result format:", result);
+      throw new Error("Database query returned unexpected format");
+    }
   } catch (error) {
     console.error("Error getting exercises:", error);
     throw error;

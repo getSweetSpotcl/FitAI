@@ -5,6 +5,7 @@ import { createDatabaseClient, getExercises } from "../db/database";
 type Bindings = {
   CACHE: KVNamespace;
   DATABASE_URL: string;
+  ENVIRONMENT: string;
 };
 
 const exercises = new Hono<{ Bindings: Bindings }>();
@@ -56,6 +57,11 @@ exercises.get("/", async (c) => {
 exercises.get("/:id", async (c) => {
   try {
     const exerciseId = c.req.param("id");
+    
+    if (!c.env?.DATABASE_URL) {
+      throw new HTTPException(500, { message: "Database not configured" });
+    }
+
     const sql = createDatabaseClient(c.env.DATABASE_URL);
 
     // Get exercise from database

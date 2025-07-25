@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { UserStats, AdminStats, AnalyticsService } from "@/services/analyticsService";
 
 interface UserData {
   firstName: string;
@@ -11,9 +12,11 @@ interface UserData {
 
 interface DashboardClientProps {
   userData: UserData;
+  userStats: UserStats | null;
+  adminStats: AdminStats | null;
 }
 
-export default function DashboardClient({ userData }: DashboardClientProps) {
+export default function DashboardClient({ userData, userStats, adminStats }: DashboardClientProps) {
   const [viewMode, setViewMode] = useState<"admin" | "user">(
     userData.isAdmin ? "admin" : "user"
   );
@@ -73,7 +76,9 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
             </div>
             <div className="ml-4">
               <p className="text-gray-400 text-sm">Usuarios Totales</p>
-              <p className="text-2xl font-bold text-white">1,234</p>
+              <p className="text-2xl font-bold text-white">
+                {adminStats ? adminStats.activeUsers.toLocaleString('es-CL') : '...'}
+              </p>
             </div>
           </div>
         </div>
@@ -97,7 +102,9 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
             </div>
             <div className="ml-4">
               <p className="text-gray-400 text-sm">Entrenamientos Hoy</p>
-              <p className="text-2xl font-bold text-white">89</p>
+              <p className="text-2xl font-bold text-white">
+                {adminStats ? adminStats.totalWorkouts.toLocaleString('es-CL') : '...'}
+              </p>
             </div>
           </div>
         </div>
@@ -120,8 +127,10 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
               </svg>
             </div>
             <div className="ml-4">
-              <p className="text-gray-400 text-sm">Rutinas IA</p>
-              <p className="text-2xl font-bold text-white">56</p>
+              <p className="text-gray-400 text-sm">Requests IA Hoy</p>
+              <p className="text-2xl font-bold text-white">
+                {adminStats ? adminStats.aiRequestsToday.toLocaleString('es-CL') : '...'}
+              </p>
             </div>
           </div>
         </div>
@@ -145,7 +154,9 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
             </div>
             <div className="ml-4">
               <p className="text-gray-400 text-sm">Ingresos Mes</p>
-              <p className="text-2xl font-bold text-white">$45,230</p>
+              <p className="text-2xl font-bold text-white">
+                {adminStats ? AnalyticsService.formatCurrency(adminStats.monthlyRevenue) : '...'}
+              </p>
             </div>
           </div>
         </div>
@@ -216,39 +227,24 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
           Actividad Reciente
         </h3>
         <div className="space-y-4">
-          {[
-            {
-              user: "Juan Pérez",
-              action: "Completó rutina 'Fuerza Básica'",
-              time: "Hace 5 min",
-            },
-            {
-              user: "María González",
-              action: "Se suscribió a Premium",
-              time: "Hace 12 min",
-            },
-            {
-              user: "Carlos Silva",
-              action: "Generó rutina con IA",
-              time: "Hace 18 min",
-            },
-            {
-              user: "Ana Torres",
-              action: "Actualizó su perfil",
-              time: "Hace 25 min",
-            },
-          ].map((activity, index) => (
+          {adminStats?.recentActivity ? adminStats.recentActivity.map((activity, index) => (
             <div
-              key={index}
+              key={activity.id}
               className="flex items-center justify-between py-3 border-b border-gray-700 last:border-0"
             >
               <div>
                 <p className="text-white font-medium">{activity.user}</p>
                 <p className="text-gray-400 text-sm">{activity.action}</p>
               </div>
-              <p className="text-gray-500 text-sm">{activity.time}</p>
+              <p className="text-gray-500 text-sm">
+                {AnalyticsService.formatRelativeTime(activity.timestamp)}
+              </p>
             </div>
-          ))}
+          )) : (
+            <div className="text-center py-8 text-gray-400">
+              <p>Cargando actividad reciente...</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -299,7 +295,9 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
               <p className="text-gray-400 text-sm">
                 Entrenamientos Completados
               </p>
-              <p className="text-2xl font-bold text-white">12</p>
+              <p className="text-2xl font-bold text-white">
+                {userStats ? userStats.workoutsCompleted : '...'}
+              </p>
             </div>
           </div>
         </div>
@@ -323,7 +321,9 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
             </div>
             <div className="ml-4">
               <p className="text-gray-400 text-sm">Rutinas IA Generadas</p>
-              <p className="text-2xl font-bold text-white">3</p>
+              <p className="text-2xl font-bold text-white">
+                {userStats ? userStats.aiRoutinesGenerated : '...'}
+              </p>
             </div>
           </div>
         </div>
@@ -347,7 +347,9 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
             </div>
             <div className="ml-4">
               <p className="text-gray-400 text-sm">Tiempo Total</p>
-              <p className="text-2xl font-bold text-white">8h 45m</p>
+              <p className="text-2xl font-bold text-white">
+                {userStats ? AnalyticsService.formatDuration(userStats.totalTime) : '...'}
+              </p>
             </div>
           </div>
         </div>
@@ -383,19 +385,31 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-300">Meta Semanal</span>
-                <span className="text-gray-300">3/5 entrenamientos</span>
+                <span className="text-gray-300">
+                  {userStats ? 
+                    `${userStats.weeklyGoal.completed}/${userStats.weeklyGoal.target} entrenamientos` :
+                    '...'
+                  }
+                </span>
               </div>
               <div className="w-full bg-gray-700 rounded-full h-2">
                 <div
                   className="bg-green-400 h-2 rounded-full"
-                  style={{ width: "60%" }}
+                  style={{ 
+                    width: userStats ? `${userStats.weeklyGoal.percentage}%` : "0%" 
+                  }}
                 ></div>
               </div>
             </div>
             <div className="pt-2">
               <p className="text-gray-400 text-sm">
-                ¡Vas muy bien! Solo te faltan 2 entrenamientos para completar tu
-                meta semanal.
+                {userStats ? (
+                  userStats.weeklyGoal.percentage >= 100 ? 
+                    '¡Felicitaciones! Completaste tu meta semanal.' :
+                    `¡Vas muy bien! Solo te faltan ${userStats.weeklyGoal.target - userStats.weeklyGoal.completed} entrenamientos para completar tu meta semanal.`
+                ) : (
+                  'Cargando progreso...'
+                )}
               </p>
             </div>
           </div>
@@ -408,34 +422,23 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
           Tu Actividad Reciente
         </h3>
         <div className="space-y-4">
-          {[
-            {
-              workout: "Rutina de Fuerza",
-              date: "Hace 2 días",
-              duration: "45 min",
-              status: "completed",
-            },
-            {
-              workout: "Cardio HIIT",
-              date: "Hace 4 días",
-              duration: "30 min",
-              status: "completed",
-            },
-            {
-              workout: "Entrenamiento Funcional",
-              date: "Hace 1 semana",
-              duration: "50 min",
-              status: "completed",
-            },
-          ].map((activity, index) => (
+          {userStats?.recentWorkouts ? userStats.recentWorkouts.map((activity, index) => (
             <div
-              key={index}
+              key={activity.id}
               className="flex items-center justify-between py-3 border-b border-gray-700 last:border-0"
             >
               <div className="flex items-center">
-                <div className="p-2 bg-green-500 bg-opacity-20 rounded-lg mr-3">
+                <div className={`p-2 rounded-lg mr-3 ${
+                  activity.status === 'completed' 
+                    ? 'bg-green-500 bg-opacity-20' 
+                    : 'bg-yellow-500 bg-opacity-20'
+                }`}>
                   <svg
-                    className="w-4 h-4 text-green-400"
+                    className={`w-4 h-4 ${
+                      activity.status === 'completed' 
+                        ? 'text-green-400' 
+                        : 'text-yellow-400'
+                    }`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -449,17 +452,25 @@ export default function DashboardClient({ userData }: DashboardClientProps) {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-white font-medium">{activity.workout}</p>
+                  <p className="text-white font-medium">{activity.name}</p>
                   <p className="text-gray-400 text-sm">
-                    {activity.date} • {activity.duration}
+                    {AnalyticsService.formatRelativeTime(activity.date)} • {activity.duration}m
                   </p>
                 </div>
               </div>
-              <span className="text-green-400 text-sm font-medium">
-                Completado ✓
+              <span className={`text-sm font-medium ${
+                activity.status === 'completed' 
+                  ? 'text-green-400' 
+                  : 'text-yellow-400'
+              }`}>
+                {activity.status === 'completed' ? 'Completado ✓' : 'En progreso'}
               </span>
             </div>
-          ))}
+          )) : (
+            <div className="text-center py-8 text-gray-400">
+              <p>Cargando actividad reciente...</p>
+            </div>
+          )}
         </div>
       </div>
 

@@ -215,46 +215,10 @@ premiumAi.post("/analyze-exercise-form", requirePro(), async (c) => {
       throw new HTTPException(400, { message: "exercise es requerido" });
     }
 
-    // Por ahora retornamos análisis mock
-    // En producción se integraría con análisis de video
-    const mockFormAnalysis = {
-      exercise,
-      overallScore: 85,
-      strengths: [
-        "Buena activación del core",
-        "Rango de movimiento completo",
-        "Tempo controlado en fase excéntrica",
-      ],
-      improvements: [
-        "Mejorar retracción escapular en posición inicial",
-        "Mantener posición neutra de columna durante todo el movimiento",
-      ],
-      formCues: [
-        "Imagina que sostienes un lápiz entre tus omóplatos",
-        "Respira profundo antes de cada repetición",
-        "Presiona el suelo con los pies para mayor estabilidad",
-      ],
-      riskFactors: [
-        "Compensación en hombro izquierdo - considera trabajo unilateral",
-      ],
-      recommendations: [
-        "Reduce 10% el peso y enfócate en la forma",
-        "Incluye ejercicios de movilidad escapular en calentamiento",
-        "Graba desde diferentes ángulos para análisis más completo",
-      ],
-      nextSteps: [
-        "Practica el patrón sin peso por 1 semana",
-        "Incrementa carga gradualmente (2.5kg cada 2 semanas)",
-        "Reevalúa en 4 semanas",
-      ],
-    };
-
-    return c.json({
-      success: true,
-      data: mockFormAnalysis,
-      message: "Análisis de técnica completado",
-      premium: true,
-      note: "Análisis basado en IA avanzada - Función en beta",
+    // TODO: Implementar análisis real de técnica con IA
+    // Esta funcionalidad requiere integración con análisis de video/imagen
+    throw new HTTPException(501, { 
+      message: "Análisis de técnica no implementado aún. Esta es una función premium que estará disponible próximamente." 
     });
   } catch (error) {
     console.error("Form analysis error:", error);
@@ -341,100 +305,10 @@ premiumAi.post("/generate-progress-report", requirePremium(), async (c) => {
       throw new HTTPException(400, { message: "workoutHistory es requerido" });
     }
 
-    // Generar reporte avanzado mock
-    const progressReport = {
-      reportId: `report_${Date.now()}`,
-      generatedAt: new Date().toISOString(),
-      timeframe,
-      user: {
-        id: user.id,
-        plan: user.plan,
-      },
-      summary: {
-        totalWorkouts: workoutHistory.length,
-        totalVolume: 45680, // kg
-        averageIntensity: 7.2, // RPE
-        consistencyScore: 89, // %
-        improvementRate: 12.5, // %
-      },
-      volumeProgression: [
-        { week: 1, volume: 8500 },
-        { week: 2, volume: 9200 },
-        { week: 3, volume: 9800 },
-        { week: 4, volume: 10100 },
-      ],
-      strengthGains: [
-        {
-          exercise: "Press de Banca",
-          initialMax: 70,
-          currentMax: 80,
-          improvement: 14.3,
-        },
-        {
-          exercise: "Sentadilla",
-          initialMax: 90,
-          currentMax: 105,
-          improvement: 16.7,
-        },
-        {
-          exercise: "Peso Muerto",
-          initialMax: 110,
-          currentMax: 125,
-          improvement: 13.6,
-        },
-      ],
-      insights: [
-        {
-          type: "strength",
-          priority: "high",
-          title: "Excelente progresión en press de banca",
-          description:
-            "Tu fuerza en press de banca ha mejorado 14.3% este mes, superando el promedio esperado.",
-          actionable: true,
-          recommendation:
-            "Mantén la progresión actual e incorpora trabajo accesorio para tríceps.",
-        },
-        {
-          type: "volume",
-          priority: "medium",
-          title: "Volumen de entrenamiento óptimo",
-          description:
-            "Tu volumen semanal está en el rango ideal para tu nivel de experiencia.",
-          actionable: false,
-          recommendation: null,
-        },
-      ],
-      recommendations: [
-        "Continúa con el programa actual por 2-3 semanas más",
-        "Considera incrementar volumen en grupos musculares de espalda",
-        "Programa una semana de descarga en 3-4 semanas",
-      ],
-      nextMilestones: [
-        {
-          exercise: "Press de Banca",
-          currentMax: 80,
-          targetMax: 85,
-          timeframe: "4 semanas",
-        },
-        {
-          exercise: "Sentadilla",
-          currentMax: 105,
-          targetMax: 115,
-          timeframe: "6 semanas",
-        },
-      ],
-      exportOptions: {
-        pdf: user.plan !== "free",
-        csv: user.plan !== "free",
-        charts: includeCharts && user.plan !== "free",
-      },
-    };
-
-    return c.json({
-      success: true,
-      data: progressReport,
-      message: "Reporte de progreso generado exitosamente",
-      premium: true,
+    // TODO: Implementar análisis real de progreso basado en datos históricos
+    // Esta funcionalidad requiere análisis complejo de datos de workout sessions
+    throw new HTTPException(501, { 
+      message: "Análisis avanzado de progreso no implementado aún. Esta es una función premium que estará disponible próximamente." 
     });
   } catch (error) {
     console.error("Progress report generation error:", error);

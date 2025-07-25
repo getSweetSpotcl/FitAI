@@ -2,6 +2,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import type { Context, Next } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { createRedisClient, MockRedis } from "../lib/redis-helper";
 
 export interface RateLimitConfig {
   requests: number;
@@ -58,10 +59,25 @@ export function rateLimitMiddleware(
       return next();
     }
 
-    const redis = new Redis({
-      url: c.env?.UPSTASH_REDIS_URL || "",
-      token: c.env?.UPSTASH_REDIS_TOKEN || "",
-    });
+    // Try to create Redis client
+    const redisClient = createRedisClient(c.env);
+    
+    // Skip rate limiting if Redis is not available
+    if (!redisClient) {
+      if (c.env?.ENVIRONMENT === "development") {
+        // In development, just warn and continue
+        console.warn("Rate limiting disabled: Redis not configured");
+        return next();
+      } else {
+        // In production, this is an error
+        console.error("Redis not configured in production!");
+        throw new HTTPException(500, {
+          message: "Service configuration error",
+        });
+      }
+    }
+
+    const redis = redisClient as Redis;
 
     // Determine rate limit config
     let limitConfig: RateLimitConfig;

@@ -10,6 +10,7 @@ type Bindings = {
   CACHE: KVNamespace;
   DATABASE_URL: string;
   CLERK_SECRET_KEY: string;
+  ENVIRONMENT: string;
 };
 
 type Variables = {
@@ -32,6 +33,7 @@ users.get("/me", async (c) => {
     if (!authUser) {
       throw new HTTPException(401, { message: "User not authenticated" });
     }
+
 
     // Connect to database
     const sql = createDatabaseClient(c.env.DATABASE_URL);

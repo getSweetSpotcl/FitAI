@@ -15,19 +15,10 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-// Mock data - in production this would come from the API
-const mockStats = {
-  activeUsers: 1247,
-  monthlyRevenue: 8950000, // CLP
-  aiCost: 245000, // CLP
-  conversionRate: 4.2,
-  dailyActiveUsers: 328,
-  premiumUsers: 89,
-  proUsers: 23,
-  totalWorkouts: 5643,
-  aiRequestsToday: 142,
-  systemHealth: 99.8,
-};
+import { useApiGet } from "@/hooks/useApi";
+import { API_ENDPOINTS } from "@/lib/api";
+import { AdminStats, AnalyticsService } from "@/services/analyticsService";
+import { useUser } from "@clerk/nextjs";
 
 interface StatCardProps {
   title: string;

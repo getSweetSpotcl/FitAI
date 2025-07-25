@@ -22,7 +22,7 @@ FitAI is an AI-powered fitness application built as a monorepo using React Nativ
 # Development - run from project root
 npm run dev                    # Start all apps in development mode
 npm run build                  # Build all apps
-npm run lint                   # Lint all code with Biome
+npm run lint                  # Lint all code with Biome
 npm run type-check            # TypeScript checking across all apps
 npm run clean                 # Clean all build artifacts
 
@@ -124,6 +124,7 @@ Required for development (check `.env.example` files):
 - **File Naming**: kebab-case for files, PascalCase for React components
 - **API Routes**: RESTful conventions with proper HTTP status codes
 - **Error Handling**: Consistent error responses with proper HTTP status codes
+- **Never use MOCK Data**: Never use fake or mock data in the app. Always query the database.
 
 ## Best Practices and Version Updates (2025)
 
@@ -151,3 +152,8 @@ Successfully updated core dependencies:
 - **Development**: `wrangler dev` provides local development server
 - **Deployment**: `wrangler deploy` handles production deployment
 - **Bindings**: KV namespace for caching, environment variables for secrets
+
+## AI and API Development Guidelines
+
+- **Data Usage**: 
+  - nunca uses datos mock n en la api ni en la web

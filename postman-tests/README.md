@@ -43,12 +43,26 @@ Esta colección incluye todos los endpoints de la API de FitAI con ejemplos comp
 
 ## 🔐 Autenticación
 
-La mayoría de endpoints requieren autenticación. Para configurarla:
+La mayoría de endpoints requieren autenticación. Tienes **dos opciones**:
 
+### Opción 1: Token de Desarrollo (Recomendado para Testing)
+1. **Usa el endpoint de desarrollo** (solo funciona cuando `ENVIRONMENT=development`):
+   ```
+   POST {{base_url}}/api/v1/auth/dev/login
+   {
+     "email": "test@example.com",
+     "password": "cualquier-password"
+   }
+   ```
+2. **El token se guarda automáticamente** en la variable `auth_token`
+3. **⚠️ Solo para desarrollo** - No usar en producción
+
+### Opción 2: Token Real de Clerk (Producción)
 1. **Obtén tu token JWT de Clerk**:
-   - Inicia sesión en tu aplicación
-   - Copia el token JWT del cliente
-
+   - Inicia sesión en tu aplicación web
+   - Abre Developer Tools (F12)
+   - En Console ejecuta: `window.Clerk.session.getToken().then(t => console.log(t))`
+   
 2. **Actualiza la variable `auth_token`**:
    - Ve al entorno activo
    - Pega tu token en la variable `auth_token`
@@ -119,6 +133,17 @@ La mayoría de endpoints requieren autenticación. Para configurarla:
 - Variables de IDs de producción
 
 ## 📝 Ejemplos de Uso
+
+### 0. Autenticación de Desarrollo (Nuevo)
+```
+POST {{base_url}}/api/v1/auth/dev/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+```
 
 ### 1. Obtener Perfil de Usuario
 ```

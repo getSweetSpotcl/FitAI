@@ -402,56 +402,10 @@ health.get("/stats", async (c) => {
       throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
-    // In production, this would query database for actual user health data
-    // For now, return mock data
-    const healthStats = {
-      today: {
-        steps: 8742,
-        activeCalories: 432,
-        distance: 6.2, // km
-        avgHeartRate: 78,
-        workouts: 1,
-        activeMinutes: 45,
-      },
-      thisWeek: {
-        totalWorkouts: 4,
-        totalCalories: 1850,
-        totalDistance: 28.5,
-        avgHeartRate: 82,
-        totalActiveMinutes: 240,
-        stepGoalAchieved: 5, // out of 7 days
-      },
-      thisMonth: {
-        totalWorkouts: 16,
-        totalCalories: 7200,
-        avgWorkoutDuration: 42, // minutes
-        strengthTrainingHours: 12.5,
-        cardioHours: 8.2,
-        restDays: 12,
-      },
-      trends: {
-        heartRateVariability: {
-          current: 45,
-          change: +3.2, // +3.2ms improvement
-          trend: "improving",
-        },
-        restingHeartRate: {
-          current: 62,
-          change: -2, // -2 BPM improvement
-          trend: "improving",
-        },
-        sleepQuality: {
-          avgHours: 7.5,
-          deepSleepPercent: 18,
-          trend: "stable",
-        },
-      },
-    };
-
-    return c.json({
-      success: true,
-      data: healthStats,
-      lastUpdated: new Date().toISOString(),
+    // TODO: Implementar consultas reales a la base de datos de salud
+    // Esta funcionalidad requiere integración con HealthKit/Google Fit
+    throw new HTTPException(501, { 
+      message: "Estadísticas de salud no implementadas aún. La integración con HealthKit estará disponible próximamente." 
     });
   } catch (error) {
     console.error("Health stats error:", error);

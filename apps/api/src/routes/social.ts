@@ -848,61 +848,17 @@ social.get("/achievements", async (c) => {
       throw new HTTPException(401, { message: "Usuario no autenticado" });
     }
 
-    // Mock achievements data for backward compatibility
-    const mockAchievements = [
-      {
-        id: "first_workout",
-        name: "Primer Paso",
-        description: "Completa tu primer entrenamiento",
-        icon: "🎯",
-        category: "milestone",
-        rarity: "common",
-        earnedAt: new Date("2024-12-15"),
-        earned: true,
-      },
-      {
-        id: "consistency_week",
-        name: "Semana Perfecta",
-        description: "Entrena 7 días consecutivos",
-        icon: "🔥",
-        category: "consistency",
-        rarity: "rare",
-        earnedAt: new Date("2025-01-10"),
-        earned: true,
-      },
-      {
-        id: "strength_100kg",
-        name: "Fuerza Centenaria",
-        description: "Levanta 100kg en press de banca",
-        icon: "⚡",
-        category: "strength",
-        rarity: "epic",
-        earnedAt: null,
-        earned: false,
-        progress: 85,
-      },
-    ];
+    // Get achievements from database
+    if (!c.env?.DATABASE_URL) {
+      throw new HTTPException(500, { message: "Database not configured" });
+    }
 
-    const earnedAchievements = mockAchievements.filter((a) => a.earned);
-    const availableAchievements = mockAchievements.filter((a) => !a.earned);
+    const sql = createDatabaseClient(c.env.DATABASE_URL);
 
-    return c.json({
-      success: true,
-      data: {
-        earned: earnedAchievements,
-        available: availableAchievements,
-        stats: {
-          totalEarned: earnedAchievements.length,
-          totalAvailable: mockAchievements.length,
-          rareCount: earnedAchievements.filter((a) => a.rarity === "rare")
-            .length,
-          epicCount: earnedAchievements.filter((a) => a.rarity === "epic")
-            .length,
-          legendaryCount: earnedAchievements.filter(
-            (a) => a.rarity === "legendary"
-          ).length,
-        },
-      },
+    // TODO: Implementar sistema de logros real con base de datos
+    // Esta funcionalidad requiere tablas de achievements y user_achievements
+    throw new HTTPException(501, { 
+      message: "Sistema de logros no implementado aún. Esta funcionalidad estará disponible próximamente." 
     });
   } catch (error) {
     console.error("Get achievements error:", error);
